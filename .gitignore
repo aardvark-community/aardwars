@@ -46,3 +46,4 @@ src/CeresNative/*.o
 /src/CeresNative/build/
 /libs
 .idea/
+/.vs
