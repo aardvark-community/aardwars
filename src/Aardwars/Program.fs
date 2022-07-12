@@ -19,7 +19,7 @@ let main (_args : string[]) =
 
     let camera = cval (CameraView.lookAt (V3d(0,0,50)) (V3d(0,100,2)) V3d.OOI) 
     let keyboard = win.Keyboard
-    let movespeed = 5.0
+    let mutable movespeed = 5.0
     let gravity = 1.725
     let jumpHeight = 6.95 
     let airAccel = 0.025
@@ -60,7 +60,7 @@ let main (_args : string[]) =
         | Keys.S -> moveVelocity.Y <- moveVelocity.Y - movespeed
         | Keys.A -> moveVelocity.X <- moveVelocity.X - 0.9 * movespeed
         | Keys.D -> moveVelocity.X <- moveVelocity.X + 0.9 * movespeed
-        | Keys.RightShift -> playerHeight <- playerHeight - 0.25
+        | Keys.LeftCtrl -> playerHeight <- playerHeight - 0.25
         | _ -> ()
     )
     win.Keyboard.Up.Values.Add (fun k ->
@@ -70,7 +70,7 @@ let main (_args : string[]) =
         | Keys.A -> moveVelocity.X <- moveVelocity.X + 0.9 * movespeed
         | Keys.D -> moveVelocity.X <- moveVelocity.X - 0.9 * movespeed
         | Keys.Space -> moveVelocity.Z <- 0.0
-        | Keys.RightShift -> playerHeight <- playerHeight + 0.25
+        | Keys.LeftCtrl -> playerHeight <- playerHeight + 0.25
         | _ -> ()
     )
 
@@ -152,7 +152,7 @@ let main (_args : string[]) =
                                     p
                                 | None -> p1
                             ) p1
-                        let p1 = tryRepair p1
+                        //let p1 = tryRepair p1
 
                         moveTo (p1 + (V3d.OOI * playerHeight))
 
@@ -187,6 +187,7 @@ let main (_args : string[]) =
             }
 
             Scene.boxSg trafos
+            //|> Sg.fillMode' FillMode.Line
 
             Sg.textWithConfig cfg (AVal.constant "AARDWARS")
             |> Sg.transform (Trafo3d.RotationX(Constant.PiHalf))
