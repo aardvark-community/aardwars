@@ -1,4 +1,4 @@
-﻿namespace Aardvars
+﻿namespace Aardwars
 
 open Aardvark.Base
 

@@ -1,4 +1,4 @@
-﻿namespace Aardvars
+﻿namespace Aardwars
 
 open FSharp.Data.Adaptive
 open Aardvark.Base
@@ -17,7 +17,23 @@ module Text =
             )
                         
         let font = FontSquirrel.Anonymous_Pro.Regular
-        let leftTextSg =
+        let healthCounter =
+            let shape = 
+                t |> AVal.map (fun t -> font.Layout(C4b.White, "health"))
+            let trafo = 
+                (win.Sizes, shape) ||> AVal.map2 (fun s shape ->
+                    let scale = 18.0 / float s.Y * 2.0
+                    let bounds = Box2d(shape.bounds.Min * scale, shape.bounds.Max * scale)
+                    let maxX = float s.X / float s.Y
+                    let x = maxX - bounds.Max.X - 0.02
+                    let y = 0.0 - bounds.Max.Y - 0.02
+                    Trafo3d.Scale(scale) *
+                    Trafo3d.Translation(x, y, -1.0)
+                )
+            Sg.shape shape
+            |> Sg.trafo trafo
+            
+        let velocityCounter =
             let shape = 
                 t |> AVal.map (fun t -> font.Layout(C4b.White, t))
 
@@ -32,28 +48,10 @@ module Text =
                     Trafo3d.Scale(scale) *
                     Trafo3d.Translation(x, y, -1.0)
                 )
-
             Sg.shape shape
             |> Sg.trafo trafo
-        //let rightTextSg =
 
-        //    let shape = 
-        //        statsText |> AVal.map (fun t -> font.Layout(C4b.White, t))
-
-        //    let trafo = 
-        //        (win.Sizes, shape) ||> AVal.map2 (fun s shape ->
-        //            let scale = 18.0 / float s.Y * 2.0
-        //            let bounds = Box2d(shape.bounds.Min * scale, shape.bounds.Max * scale)
-        //            let maxX = float s.X / float s.Y
-        //            let x = maxX - bounds.Max.X - 0.02
-        //            let y = 1.0 - bounds.Max.Y - 0.02
-        //            Trafo3d.Scale(scale) *
-        //            Trafo3d.Translation(x, y, -1.0)
-        //        )
-
-        //    Sg.shape shape
-        //    |> Sg.trafo trafo
-        Sg.ofList [leftTextSg]
+        Sg.ofList [velocityCounter;healthCounter]
         |> Sg.onOff showText
         |> Sg.viewTrafo (AVal.constant Trafo3d.Identity)
         |> Sg.projTrafo textProj

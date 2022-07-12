@@ -6,7 +6,28 @@
     <OutputPath>..\..\bin\$(Configuration)\</OutputPath>
   </PropertyGroup>
   <ItemGroup>
-    <None Include="paket.references" />
+	  <EmbeddedResource Include="assets\gun.png">
+		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="assets\gun.mtl">
+		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="assets\gun.obj">
+		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="assets\brickstexture.jpg"><CopyToOutputDirectory>Always</CopyToOutputDirectory></EmbeddedResource>
+	  <EmbeddedResource Include="assets\brickstexturedetailed.jpg"><CopyToOutputDirectory>Always</CopyToOutputDirectory></EmbeddedResource>
+	  <EmbeddedResource Include="assets\brickstexturesimple.jpg"><CopyToOutputDirectory>Always</CopyToOutputDirectory></EmbeddedResource>
+	  <EmbeddedResource Include="assets\grassdarktexture.jpg"><CopyToOutputDirectory>Always</CopyToOutputDirectory></EmbeddedResource>
+	  <EmbeddedResource Include="assets\grasslighttexture.jpg"><CopyToOutputDirectory>Always</CopyToOutputDirectory></EmbeddedResource>
+	  <EmbeddedResource Include="assets\grasstexture.jpg"><CopyToOutputDirectory>Always</CopyToOutputDirectory></EmbeddedResource>
+	  <EmbeddedResource Include="assets\lavatexture.jpg"><CopyToOutputDirectory>Always</CopyToOutputDirectory></EmbeddedResource>
+	  <EmbeddedResource Include="assets\rockstexture.jpg"><CopyToOutputDirectory>Always</CopyToOutputDirectory></EmbeddedResource>
+	  <EmbeddedResource Include="assets\rockstexturered.jpg"><CopyToOutputDirectory>Always</CopyToOutputDirectory></EmbeddedResource>
+	  <EmbeddedResource Include="assets\Source.txt.txt"><CopyToOutputDirectory>Always</CopyToOutputDirectory></EmbeddedResource>
+	  <EmbeddedResource Include="assets\steelfloortexture.jpg"><CopyToOutputDirectory>Always</CopyToOutputDirectory></EmbeddedResource>
+	  <EmbeddedResource Include="assets\steelwalltexture.jpg"><CopyToOutputDirectory>Always</CopyToOutputDirectory></EmbeddedResource>
+	  <EmbeddedResource Include="assets\watertexture.jpg"><CopyToOutputDirectory>Always</CopyToOutputDirectory></EmbeddedResource>
     <Compile Include="Text.fs" />
     <Compile Include="Motion.fs" />
     <Compile Include="Scene.fs" />

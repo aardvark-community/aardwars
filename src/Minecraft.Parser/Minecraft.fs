@@ -63,3 +63,13 @@ module Minecraft =
                         ()
             }
 
+    let test () =
+        
+        let rs = getRegions @"T:\Dropbox\Data\minecraft\Notre_Dame_and_Medieval_City\Notre Dame and Medieval City"
+        for r in rs do 
+            printfn "region %3d %3d" r.X r.Z
+            let xs = enumerateRawNbtBuffers r |> Seq.toArray
+            ()
+            //for x in xs do printfn "%d" x.Length
+        System.Environment.Exit 0
+    
