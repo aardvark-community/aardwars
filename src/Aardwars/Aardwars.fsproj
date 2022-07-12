@@ -6,10 +6,21 @@
     <OutputPath>..\..\bin\$(Configuration)\</OutputPath>
   </PropertyGroup>
   <ItemGroup>
+    <EmbeddedResource Include="assets\gun.png">
+      <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+    </EmbeddedResource>
+	<EmbeddedResource Include="assets\gun.obj">
+	  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+	</EmbeddedResource>
+	<EmbeddedResource Include="assets\gun.mtl">
+	  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+	</EmbeddedResource>
     <Compile Include="Text.fs" />
     <Compile Include="Motion.fs" />
     <Compile Include="Scene.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
+  <ItemGroup />
+  <ItemGroup />
   <Import Project="..\..\.paket\Paket.Restore.targets" />
 </Project>

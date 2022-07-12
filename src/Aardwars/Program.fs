@@ -17,7 +17,7 @@ let main (_args : string[]) =
     let app = new OpenGlApplication()
     let win = app.CreateGameWindow()
 
-    let camera = cval (CameraView.lookAt (V3d(0,0,50)) (V3d(0,100,2)) V3d.OOI) 
+    let camera = cval (CameraView.lookAt (V3d(0,0,5)) (V3d(0,100,2)) V3d.OOI) 
     let keyboard = win.Keyboard
     let movespeed = 5.0
     let gravity = 1.725
@@ -174,6 +174,46 @@ let main (_args : string[]) =
     let realPlayerTrafo =
         camera |> AVal.map (CameraView.viewTrafo)
 
+    let gunProjection =
+        (win.Sizes |> AVal.map (fun s -> Frustum.perspective 110.0 0.0001 20.0 (float s.X / float s.Y) |> Frustum.projTrafo))
+
+    let secondFbo =
+        let sigg =   
+            win.Runtime.CreateFramebufferSignature([
+                DefaultSemantic.Colors, TextureFormat.Rgba8; 
+                DefaultSemantic.DepthStencil, TextureFormat.Depth24Stencil8
+               ]
+            )
+        let task = 
+            Import.importGun()
+                |> Sg.transform 
+                    (
+                        Trafo3d.Scale(1.0,1.0,-1.0) *
+                        Trafo3d.Scale(0.5) *
+                        Trafo3d.Translation(1.0,-1.0,-1.0)
+                    )
+                |> Sg.shader {
+                    do! DefaultSurfaces.trafo
+                    do! DefaultSurfaces.diffuseTexture
+                    do! DefaultSurfaces.simpleLighting
+                }
+                |> Sg.viewTrafo (AVal.constant Trafo3d.Identity)
+                |> Sg.projTrafo gunProjection
+                //|> Sg.depthTest' DepthTest.None
+                |> Sg.cullMode' CullMode.None
+                |> Sg.fillMode' FillMode.Fill
+                |> Sg.compile app.Runtime sigg
+                
+        let c : ClearValues =
+            clear {
+                color (C4b(0uy,0uy,0uy,0uy))
+                depth 1.0
+                stencil 0
+            }
+
+        let t = RenderTask.renderToColorWithClear win.Sizes c task 
+        t
+
     let scene =
         let rand = RandomSystem()
         Sg.ofList [
@@ -186,7 +226,7 @@ let main (_args : string[]) =
                 do! DefaultSurfaces.diffuseTexture
             }
 
-            Scene.boxSg trafos
+            //Scene.boxSg trafos
 
             Sg.textWithConfig cfg (AVal.constant "AARDWARS")
             |> Sg.transform (Trafo3d.RotationX(Constant.PiHalf))
@@ -220,8 +260,17 @@ let main (_args : string[]) =
 
     let statusText = displayVelo |> AVal.map (fun v -> sprintf "%.2f" v.Length)
     let textSg = Text.statusTextSg win statusText (AVal.constant true)
+    let secondPassSg = 
+        Sg.fullScreenQuad
+        |> Sg.diffuseTexture secondFbo
+        |> Sg.shader {
+            do! DefaultSurfaces.diffuseTexture
+        }
+        |> Sg.blendMode' BlendMode.Blend
+        |> Sg.pass (RenderPass.after "§iasfj" RenderPassOrder.Arbitrary RenderPass.main)
+
     let finalSg =
-        Sg.ofList [scene; textSg]
+        Sg.ofList [scene; textSg; secondPassSg]
     win.RenderTask <- 
         Sg.compile' win.Runtime win.FramebufferSignature false finalSg
     
