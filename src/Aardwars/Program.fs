@@ -7,11 +7,19 @@ open Aardvark.SceneGraph
 open Aardvark.Application
 open Aardvark.Application.Slim
 open Aardvark.Rendering.Text
-
+open Aardwars
 open Aardvars
 
 [<EntryPoint>]
 let main (_args : string[]) =
+
+    let rs = Minecraft.getRegions @"T:\Dropbox\Data\minecraft\Notre_Dame_and_Medieval_City\Notre Dame and Medieval City"
+    for r in rs do 
+        printfn "region %3d %3d" r.X r.Z
+        let xs = Minecraft.enumerateRawNbtBuffers r |> Seq.toArray
+        ()
+        //for x in xs do printfn "%d" x.Length
+    System.Environment.Exit 0
     
     Aardvark.Init()
     let app = new OpenGlApplication()
