@@ -137,7 +137,7 @@ let main (_args : string[]) =
     let gravity = 1.725
     let jumpHeight = 6.95 
     let airAccel = 0.025
-    let playerHeight = 1.35
+    let mutable playerHeight = 1.35
 
     let glfw = win.GetType().GetField("glfw", BindingFlags.NonPublic ||| BindingFlags.Instance).GetValue(win) :?> Silk.NET.GLFW.Glfw
     let hwin = win.GetType().GetField("win", BindingFlags.NonPublic ||| BindingFlags.Instance).GetValue(win) :?> nativeptr<Silk.NET.GLFW.WindowHandle>
@@ -174,6 +174,7 @@ let main (_args : string[]) =
         | Keys.S -> moveVelocity.Y <- moveVelocity.Y - movespeed
         | Keys.A -> moveVelocity.X <- moveVelocity.X - 0.9 * movespeed
         | Keys.D -> moveVelocity.X <- moveVelocity.X + 0.9 * movespeed
+        | Keys.RightShift -> playerHeight <- playerHeight - 0.25
         | _ -> ()
     )
     win.Keyboard.Up.Values.Add (fun k ->
@@ -183,6 +184,7 @@ let main (_args : string[]) =
         | Keys.A -> moveVelocity.X <- moveVelocity.X + 0.9 * movespeed
         | Keys.D -> moveVelocity.X <- moveVelocity.X - 0.9 * movespeed
         | Keys.Space -> moveVelocity.Z <- 0.0
+        | Keys.RightShift -> playerHeight <- playerHeight + 0.25
         | _ -> ()
     )
     
