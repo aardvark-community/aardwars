@@ -10,6 +10,7 @@ open Aardvark.Rendering.Text
 
 open Aardvars
 
+open FShade
 [<EntryPoint>]
 let main (_args : string[]) =
     
@@ -33,6 +34,7 @@ let main (_args : string[]) =
     win.Fullcreen <- false
     win.Cursor <- Cursor.None
     win.VSync <- true
+    win.WindowPosition <- V2i(100,100)
     
     win.Mouse.Move.Values.Add(fun (o,n) ->
         let c = V2d (AVal.force win.Sizes) / 2.0
@@ -176,7 +178,6 @@ let main (_args : string[]) =
 
     let gunProjection =
         (win.Sizes |> AVal.map (fun s -> Frustum.perspective 110.0 0.0001 20.0 (float s.X / float s.Y) |> Frustum.projTrafo))
-
     let secondFbo =
         let sigg =   
             win.Runtime.CreateFramebufferSignature([
@@ -195,6 +196,12 @@ let main (_args : string[]) =
                 |> Sg.shader {
                     do! DefaultSurfaces.trafo
                     do! DefaultSurfaces.diffuseTexture
+                    do! 
+                        (fun (v : Effects.Vertex) -> 
+                            fragment {
+                                return V4d(v.c.X ** 0.5, v.c.Y ** 0.5, v.c.Z ** 0.5, 1.0)
+                            }
+                        )
                     do! DefaultSurfaces.simpleLighting
                 }
                 |> Sg.viewTrafo (AVal.constant Trafo3d.Identity)
