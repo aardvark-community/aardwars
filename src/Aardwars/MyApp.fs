@@ -8,15 +8,13 @@ open FSharp.Data.Adaptive
 open Aardvark.Application
 open Elm
 open System.Reflection
+open Aardwars
 
 type CameraMessage =
     | Look of delta : V2d
-    
     | StartMove of speed : V3d
     | StopMove of speed : V3d
-
     | UpdateTime of seconds : float * delta : float
-
 
 module CameraController =
     let initial = 
@@ -50,6 +48,9 @@ module CameraController =
         | CameraMessage.StopMove speed ->
             { cam with move = cam.move - speed }
         | CameraMessage.UpdateTime(_, dt) ->
+            //let vNew = Fun.Lerp(0.5 ** dt, cam.velocity, cam.move)
+            //let v = V3d(vNew.X, vNew.Y, cam.velocity.Z)
+
             let v = cam.velocity
             if v.AllEqual 0.0 then
                 cam
@@ -68,8 +69,7 @@ module CameraController =
                             sky * v.Z * dt
                         ) 
                 }
-            
-        
+     
 
 type Message =
     | MouseMove of delta : V2d
@@ -123,10 +123,11 @@ module Game =
 
     let intitial (env : Environment<Message>) = 
 
-        let world = PlaneWorld(2.0) :> World
+        let world = World.randomGenerated 2000 (V2i(100,100)) 1.5
         let cam = CameraController.initial
 
-        let (p1, floor) = world.Hit(cam.camera.Location + V3d(0,0,1000), cam.camera.Location)
+        let (p1, floor) = 
+            world.Hit (cam.camera.Location + V3d(0,0,1000)) cam.camera.Location
 
         {
             world = world
@@ -145,13 +146,20 @@ module Game =
             let p1 = newCam.camera.Location
             let newModel = 
                 if p0 <> p1 then
-                    let (p1, floor) = m.world.Hit(p0, p1)
+                    let (p1, floor) = m.world.Hit p0 p1
                     let newCam = { newCam with camera = newCam.camera.WithLocation(p1) }
                     { m with camera = newCam; onFloor = floor }
                 else    
                     { m with camera = newCam }
             if newModel.onFloor then   
-                { newModel with camera = { newModel.camera with velocity = newModel.camera.move } }
+                { newModel with 
+                    camera = 
+                        { newModel.camera with 
+                            velocity = 
+                                let vn = Fun.Lerp(0.05, newModel.camera.velocity, newModel.camera.move)
+                                V3d(vn.X,vn.Y,newModel.camera.move.Z)
+                        } 
+                }
             else
                 newModel
 
@@ -167,6 +175,7 @@ module Game =
         | KeyDown Keys.D -> model |> cam (CameraMessage.StartMove (V3d(moveSpeed, 0.0, 0.0)))
         | KeyUp Keys.D -> model |> cam (CameraMessage.StopMove (V3d(moveSpeed, 0.0, 0.0)))
         | KeyDown Keys.Space -> model |> cam (CameraMessage.StartMove (V3d(0.0, 0.0, 2.0 * moveSpeed)))
+        | KeyUp Keys.Space -> model |> cam (CameraMessage.StopMove (V3d(0.0, 0.0, 2.0 * moveSpeed)))
 
         | Resize s -> 
             { model with 
@@ -178,14 +187,16 @@ module Game =
             let model = model |> cam (CameraMessage.UpdateTime(t, dt))
             if model.onFloor then
                 { model with
-                    camera = { model.camera with move = model.camera.move.XYO }
                     time = t
                 }
             else
                 let cam = model.camera
                 { model with
                     time = t
-                    camera = { cam with velocity = cam.velocity - V3d(0.0, 0.0, 25.81) * dt; move = cam.move.XYO }
+                    camera = 
+                        { cam with 
+                            velocity = cam.velocity - V3d(0.0, 0.0, 100.81) * dt
+                        }
                 }
 
         | KeyDown _ 
@@ -196,14 +207,14 @@ module Game =
 
     let view (env : Environment<Message>) (model : AdaptiveModel) =
         events env
-        Sg.fullScreenQuad
-        |> Sg.scale 100.0
-        |> Sg.diffuseTexture DefaultTextures.checkerboard
-        |> Sg.shader {
-            do! DefaultSurfaces.trafo
-            do! DefaultSurfaces.diffuseTexture
-        }
-        //|> Sg.trafo (model.time |> AVal.map Trafo3d.RotationZ)
-        |> Sg.viewTrafo (model.camera.camera |> AVal.map CameraView.viewTrafo)
-        |> Sg.projTrafo (model.proj |> AVal.map Frustum.projTrafo)
+        let worldSg =
+            model.world.Scene env.Window
+
+        let gunSg = Gun.scene env.Window
+        let textSg = 
+            Text.statusTextSg env.Window (model.camera.velocity |> AVal.map (fun v -> sprintf "%.2f" v.Length)) (AVal.constant true)
+
+        Sg.ofList [worldSg; gunSg; textSg]
+            |> Sg.viewTrafo (model.camera.camera |> AVal.map CameraView.viewTrafo)
+            |> Sg.projTrafo (model.proj |> AVal.map Frustum.projTrafo)
 
