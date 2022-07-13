@@ -123,7 +123,7 @@ module Game =
 
     let intitial (env : Environment<Message>) = 
 
-        let world = World.randomGenerated 2000 (V2i(100,100)) 1.5
+        let world = World.randomBoxWorld 1000 (V2i(300,300)) 1.5
         let cam = CameraController.initial
 
         let (p1, floor) = 
