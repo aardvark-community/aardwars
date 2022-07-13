@@ -28,11 +28,11 @@
 	  <EmbeddedResource Include="assets\steelfloortexture.jpg"><CopyToOutputDirectory>Always</CopyToOutputDirectory></EmbeddedResource>
 	  <EmbeddedResource Include="assets\steelwalltexture.jpg"><CopyToOutputDirectory>Always</CopyToOutputDirectory></EmbeddedResource>
 	  <EmbeddedResource Include="assets\watertexture.jpg"><CopyToOutputDirectory>Always</CopyToOutputDirectory></EmbeddedResource>
-	  <Compile Include="Scene.fs" />
+	  <Compile Include="Util.fs" />
+	  <Compile Include="RandomBoxes.fs" />
 	  <Compile Include="Gun.fs" />
 	  <Compile Include="Text.fs" />
-	  <Compile Include="Motion.fs" />
-	  <Compile Include="App.fs" />
+	  <Compile Include="CollisionDetection.fs" />
 	  <Compile Include="Model.fs" />
 	  <Compile Include="MyApp.fs" />
     <Compile Include="Program.fs" />
