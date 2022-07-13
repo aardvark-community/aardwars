@@ -393,7 +393,7 @@ module Minecraft =
 
     let test () =
         
-        let xs =
+        let sections =
             //@"T:\Dropbox\Data\minecraft\Notre_Dame_and_Medieval_City\Notre Dame and Medieval City"
             @"\\euclid\InOut\aardwars\Notre_Dame_and_Medieval_City\Notre Dame and Medieval City"
             |> getRegions
@@ -403,9 +403,16 @@ module Minecraft =
             |> Seq.collect extractSectionsFromChunk
             |> Seq.toArray
 
-        let materials = xs |> Seq.collect (fun x -> x.Palette) |> Seq.distinct |> Seq.sort |> Seq.toArray
+        let materials = sections |> Seq.collect (fun x -> x.Palette) |> Seq.distinct |> Seq.sort |> Seq.toArray
         for x in materials do printfn "%s" x
 
+        let histo = sections |> Seq.collect (fun x -> x.BlockStates) |> Seq.countBy id |> Seq.sortByDescending (fun (_,c) -> c) |> Seq.toArray
+        for (m, c) in histo do printfn "%30s %10d" m c
+
+
+        //printfn ""
+        //printfn "count       : %10d" count
+        //printfn "countBedrock: %10d" countBedrock
         //for x in xs do printfn "%A" x
 
         System.Environment.Exit 0

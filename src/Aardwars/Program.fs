@@ -14,6 +14,7 @@ open FShade
 let main (_args : string[]) =
 
     //Minecraft.test ()
+
     Aardvark.Init()
     let app = new OpenGlApplication()
     let win = app.CreateGameWindow()
