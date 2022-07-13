@@ -232,17 +232,93 @@ module Minecraft =
                 | _  ->
                     failwith "not implemented"
 
-        parse None false 0
+        let (nbt, newOffset) = parse None false 0
+        if (newOffset <> buffer.Length) then failwith "Assertion failed. Expected to parse complete buffer."
 
+        nbt.Payload
+
+    let lookup (name : string) (tag : NbtPayload) : NbtPayload option =
+        match tag with
+        | PayloadCompound xs ->
+            match xs |> List.tryFind (fun x -> x.Name = name) with
+            | Some t -> Some t.Payload
+            | None -> None
+        | _ -> None
+
+    let rec lookupPath (path : string list) (node : NbtPayload) : NbtPayload option =
+        match path with
+        | [] -> Some node
+        | first :: rest ->
+            match lookup first node with
+            | None -> None
+            | Some x -> lookupPath rest x
+
+    type Section = {
+        BlockStates : int64[]
+        Palette : string[]
+        Y : int
+        }
+
+    let extractSectionsFromChunk nbt =
+        let sections = lookupPath [ "Level"; "Sections" ] nbt
+        match sections with
+        | Some (PayloadList xs) ->
+            xs
+            |> Array.map (fun section ->
+                match section with
+                | PayloadCompound _ ->
+                    let blockStates = match lookup "BlockStates" section with
+                                      | Some (PayloadLongArray xs) -> Some xs
+                                      | _ -> None
+                    let palette     = match lookup "Palette" section with
+                                      | Some (PayloadList xs) ->
+                                            xs 
+                                            |> Array.map (fun x ->
+                                                let name = 
+                                                    match lookup "Name" x with
+                                                    | Some (PayloadString s) -> s
+                                                    | _ -> failwith ""
+                                                let level = 
+                                                    match lookupPath [ "Properties"; "level"] x with
+                                                    | Some (PayloadString s) -> Some s
+                                                    | _ -> None
+                                            
+                                                match level with
+                                                | None -> name
+                                                | Some level -> name + ":" + level
+
+                                                )
+                                            |> Some
+                                      | _ -> None
+                    let y           = match lookup "Y" section with
+                                      | Some (PayloadByte x) -> Some(int(x))
+                                      | _ -> None
+                    
+                    match (blockStates, palette, y) with
+                    | (Some blockStates, Some palette, Some y) ->
+                        Some { BlockStates = blockStates; Palette = palette; Y = y }
+                    | (None, None, Some y) -> None
+                    | _ -> failwith ""
+
+                | _ -> failwith ""
+                )
+            //|> Seq.filter Option.isSome
+            |> Seq.choose id
+        | _ -> Array.empty
 
     let test () =
         
         let xs =
             @"T:\Dropbox\Data\minecraft\Notre_Dame_and_Medieval_City\Notre Dame and Medieval City"
             |> getRegions
+            //|> Seq.take 1
             |> Seq.collect enumerateRawNbtBuffers
             |> Seq.map parseRawNbtBuffer
-            |> Seq.toArray
+            |> Seq.collect extractSectionsFromChunk
+            //|> Seq.toArray
+
+        let materials = xs |> Seq.collect (fun x -> x.Palette) |> Seq.distinct |> Seq.sort |> Seq.toArray
+        for x in materials do printfn "%s" x
 
         //for x in xs do printfn "%A" x
 
