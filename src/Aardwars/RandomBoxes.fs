@@ -90,7 +90,6 @@ type Material =
 module Scene = 
 
     let boxSg (cubes : (Trafo3d * Material)[]) = 
-
         let grasstexture =
             PixTexture2d(PixImageMipMap [| PixImage.Load(@"assets\grasstexture.jpg") |], true) :> ITexture
             |> AVal.constant
@@ -137,10 +136,7 @@ module Scene =
         )
         |> Sg.ofArray
 
-    
-    
-
-    let createTestScene =
+    let createTestScene blockCount gridSize =
         let randomMaterial = System.Random()
         let materials = [|Material.Bricks;Material.Grass;Material.Lava;Material.Rocks;Material.Water;Material.Steelwall;Material.Steelfloor|]
         
@@ -198,11 +194,8 @@ module Scene =
                                 createCube x y z offset
             |]
             
-        let blockCount = 20000
-        let gridSize = (V2i(200, 200))
         let fullGrid = grid gridSize blockCount
         Log.startTimed "Create lvl"
-        //let trafos = fullTrafos fullGrid gridSize
         let trafos = sparseTrafos fullGrid gridSize
         let worldBoxes = 
             trafos |> Array.map (fun (t,_) -> 
