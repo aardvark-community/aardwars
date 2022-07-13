@@ -14,10 +14,15 @@ open FShade
 let main (_args : string[]) =
 
     //Minecraft.test ()
-
     Aardvark.Init()
     let app = new OpenGlApplication()
     let win = app.CreateGameWindow()
+
+
+    do 
+        let app = Elm.App.create Elm.Game.intitial Elm.Game.update Elm.Game.view
+        Elm.App.run win app
+        exit 0
 
     let camera = cval (CameraView.lookAt (V3d(0,0,5)) (V3d(0,100,2)) V3d.OOI) 
     let keyboard = win.Keyboard
