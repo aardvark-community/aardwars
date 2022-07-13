@@ -4,6 +4,9 @@ open System.IO
 open ICSharpCode.SharpZipLib.Zip.Compression.Streams
 open System.Text
 open System
+open System.Collections
+open System.Runtime.CompilerServices
+open System.Runtime.InteropServices
 
 module Minecraft =
     
@@ -14,8 +17,21 @@ module Minecraft =
     *)
 
     type Region = { FileName : string; X : int; Z : int }
+   
     type RawNbtBuffer = { Region : Region; X : int; Z : int; Buffer : byte[] }
     
+    type Section = {
+        Region : Region
+        //BlockStatesRaw : int64[]
+        BlockStates : string[] // 16x16x16 material names
+        Palette : string[]
+        Y : int
+        XPos : int
+        ZPos : int
+        }
+
+
+    // parsing ...
     type NbtPayload =
         | PayloadEnd                        // 0
         | PayloadByte of byte               // 1
@@ -109,7 +125,7 @@ module Minecraft =
     let parseRawNbtBuffer (x : RawNbtBuffer) =
 
         let buffer = x.Buffer
-        File.WriteAllBytes("T:/debug.nbt", buffer)
+        //File.WriteAllBytes("debug.nbt", buffer)
 
         let rec parse (tagId : int option) doNotParseTagName offset =
 
@@ -235,7 +251,7 @@ module Minecraft =
         let (nbt, newOffset) = parse None false 0
         if (newOffset <> buffer.Length) then failwith "Assertion failed. Expected to parse complete buffer."
 
-        nbt.Payload
+        (nbt.Payload, x.Region)
 
     let lookup (name : string) (tag : NbtPayload) : NbtPayload option =
         match tag with
@@ -253,13 +269,61 @@ module Minecraft =
             | None -> None
             | Some x -> lookupPath rest x
 
-    type Section = {
-        BlockStates : int64[]
-        Palette : string[]
-        Y : int
-        }
+    let decodeBlockStates (ls : int64[]) (palette : string[]) : string[] =
 
-    let extractSectionsFromChunk nbt =
+        let unpackDense bitcount =
+            // bitcount bit indices, densely packed
+            let bits = new BitArray(MemoryMarshal.AsBytes(ls.AsSpan()).ToArray())
+            let rs = Array.zeroCreate 4096
+            for i = 0 to 4096-1 do
+                let j0 = i * bitcount
+                let mutable x = 0
+                for j = 0 to bitcount-1 do
+                    x <- if bits.Get(j0 + j) then x ||| (1 <<< j) else x
+                rs.[i] <- palette.[x]
+            rs
+
+        match ls.Length with
+
+        | 256 ->
+            let foo = 
+                ls
+                |> Array.collect (fun l -> 
+                    let xs = Array.zeroCreate 16
+                    let mutable j = 0
+                    for bi = 0 to 7 do
+                        let b = int(l >>> (bi <<< 3))
+                        xs.[j] <- palette.[ b        &&& 0b00001111]
+                        j <- j + 1
+                        xs.[j] <- palette.[(b >>> 4) &&& 0b00001111]
+                        j <- j + 1
+                    xs
+                )
+            foo
+
+        | 320 -> unpackDense 5
+        | 384 -> unpackDense 6
+        | 448 -> unpackDense 7
+
+        | 512 ->
+            let foo = 
+                ls
+                |> Array.collect (fun l -> 
+                    let xs = Array.zeroCreate 8
+                    for j = 0 to 7 do
+                        let b = int(l >>> (j <<< 3))
+                        xs.[j] <- palette.[b &&& 0b11111111]
+                    xs
+                )
+            foo
+
+        | _ -> sprintf "oh no, failed to decode %d longs" ls.Length |> failwith
+
+    let extractSectionsFromChunk (nbt, region) =
+        
+        let xPos = match lookupPath [ "Level"; "xPos" ] nbt with | Some (PayloadInt x) -> x | _ -> failwith ""
+        let zPos = match lookupPath [ "Level"; "zPos" ] nbt with | Some (PayloadInt x) -> x | _ -> failwith ""
+
         let sections = lookupPath [ "Level"; "Sections" ] nbt
         match sections with
         | Some (PayloadList xs) ->
@@ -296,8 +360,29 @@ module Minecraft =
                     
                     match (blockStates, palette, y) with
                     | (Some blockStates, Some palette, Some y) ->
-                        Some { BlockStates = blockStates; Palette = palette; Y = y }
+                        Some {
+                            Region = region
+                            BlockStates = decodeBlockStates blockStates palette
+                            Palette = palette
+                            Y = y
+                            XPos = xPos; ZPos = zPos
+                            }
+                    
+                    | (None, Some palette, Some y) ->
+                        let blockStates =
+                            match palette.Length with
+                            | 1 -> Array.create 4096 (palette.[0])
+                            | _ -> failwith "not implemented"
+                        Some { 
+                            Region = region
+                            BlockStates = blockStates
+                            Palette = palette
+                            Y = y 
+                            XPos = xPos; ZPos = zPos
+                            }
+
                     | (None, None, Some y) -> None
+
                     | _ -> failwith ""
 
                 | _ -> failwith ""
@@ -309,13 +394,14 @@ module Minecraft =
     let test () =
         
         let xs =
-            @"T:\Dropbox\Data\minecraft\Notre_Dame_and_Medieval_City\Notre Dame and Medieval City"
+            //@"T:\Dropbox\Data\minecraft\Notre_Dame_and_Medieval_City\Notre Dame and Medieval City"
+            @"\\euclid\InOut\aardwars\Notre_Dame_and_Medieval_City\Notre Dame and Medieval City"
             |> getRegions
             //|> Seq.take 1
             |> Seq.collect enumerateRawNbtBuffers
             |> Seq.map parseRawNbtBuffer
             |> Seq.collect extractSectionsFromChunk
-            //|> Seq.toArray
+            |> Seq.toArray
 
         let materials = xs |> Seq.collect (fun x -> x.Palette) |> Seq.distinct |> Seq.sort |> Seq.toArray
         for x in materials do printfn "%s" x
