@@ -138,9 +138,12 @@ module Game =
        
         
     let intitial (env : Environment<Message>) = 
-
-        let world = World.randomGenerated 2000 (V2i(100,100)) 1.5
-        let cam = CameraController.initial
+        
+        let world = 
+            //World.treeWorld env.Window atlas tree 1.75
+            World.randomGenerated 20000 (V2i(200,200)) 1.85
+        let center = world.Bounds.Center.XYZ// + world.Bounds.Max.OOZ
+        let cam = { CameraController.initial with camera = CameraView.lookAt center (center + V3d.IOO) V3d.OOI }
 
         let (p1, floor) = 
             world.Hit (cam.camera.Location + V3d(0,0,1000)) cam.camera.Location
@@ -170,7 +173,7 @@ module Game =
             proj = Frustum.perspective 90.0 0.1 1000.0 1.0
             time = 0.0
             targets = initialTargets
-            moveSpeed = 7.5
+            moveSpeed = 25.5
             airAccel = 0.0012
             lastHit = None
             weapons = HashMap.ofArray[|
