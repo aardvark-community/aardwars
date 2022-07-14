@@ -34,6 +34,7 @@
 	  <Compile Include="Text.fs" />
 	  <Compile Include="CollisionDetection.fs" />
 	  <Compile Include="BoxWorld.fs" />
+	  <Compile Include="MinecraftWorld.fs" />
 	  <Compile Include="Model.fs" />
 	  <Compile Include="MyApp.fs" />
     <Compile Include="Program.fs" />

@@ -133,7 +133,8 @@ module World =
             Bounds = Box3d worldBoxes
         }
     
-    let treeWorld (win : IRenderWindow) (tex : ITexture) (tree : Octree<BoxInfo>) (playerHeight : float) =
+    let treeWorld (win : IRenderWindow) (regionsDir : string) (assetDir : string) (playerHeight : float) =
+        let (tree,tex) = MinecraftWorld.load win.Runtime regionsDir assetDir
         let hit (p0 : V3d) (p1 : V3d) =
             let p0 = p0 - (V3d.OOI * playerHeight)
             let mutable p1 = p1 - (V3d.OOI * playerHeight)
@@ -159,8 +160,6 @@ module World =
                 if zUp then true
                 else newP1.Z <= tree.BoundingBox.Min.Z + playerHeight
             newP1,onFloor
-
-
 
         let inst : LodTreeInstance = 
             { 
