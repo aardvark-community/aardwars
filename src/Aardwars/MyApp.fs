@@ -11,6 +11,8 @@ open System.Reflection
 open Aardwars
 open Aardvark.Rendering.Text
 
+open Aardwars.Gun
+
 
 type CameraMessage =
     | Look of delta : V2d
@@ -135,12 +137,6 @@ module Game =
    //}
        
         
-             
-             
-             
-        
-
-
     let intitial (env : Environment<Message>) = 
 
         let world = World.randomGenerated 2000 (V2i(100,100)) 1.5
@@ -160,7 +156,7 @@ module Game =
             HashMap.ofList [
                 for i = 0 to 10 - 1 do
                     let randomHealth = random.Next(10,200)
-                    let randomRadius = random.Next(0,10)
+                    let randomRadius = random.Next(3,10)
                     let randomPosition = V3d(random.Next(-50,50),random.Next(-50,50),random.Next(3,20))
                     let name = sprintf "target_%i" i
                     name,{currentHp = randomHealth; maxHp = randomHealth; pos = randomPosition ;radius = randomRadius }   
@@ -176,6 +172,12 @@ module Game =
             targets = initialTargets
             moveSpeed = 7.5
             airAccel = 0.0012
+            lastHit = None
+            weapons = HashMap.ofArray[|
+                    Primary,Weapon.laserGun
+                    Secondary,Weapon.shotGun
+                |]
+            activeWeapon = Primary
         }
 
     let update (env : Environment<Message>) (model : Model) (message : Message) =
@@ -225,6 +227,8 @@ module Game =
         | KeyUp Keys.D -> model |> cam (CameraMessage.StopMove (V3d(model.moveSpeed, 0.0, 0.0)))
         | KeyDown Keys.Space -> model |> cam (CameraMessage.StartMove (V3d(0.0, 0.0, 10.0)))
         | KeyUp Keys.Space -> model |> cam (CameraMessage.StopMove (V3d(0.0, 0.0, 10.0)))
+        | KeyDown Keys.D1 -> { model with activeWeapon = Primary}
+        | KeyDown Keys.D2 -> { model with activeWeapon = Secondary}
         
         | KeyDown Keys.O -> 
             let n = model.moveSpeed + 0.1
@@ -303,45 +307,56 @@ module Game =
                 |> List.tryHead
                 |> Option.map fst
 
-            let updatedTargets : HashMap<string, Target> =
+            let updatedTargets, updatedLastHit : HashMap<string, Target> * Option<LastHitInfo> =
                 match hittedTarget with
-                | None -> model.targets
+                | None -> model.targets, None
                 | Some hit -> 
-                    model.targets
-                    |> HashMap.alter hit (fun altV -> 
-                        
-                        
-                        match altV with
-                        |None -> None
-                        |Some target -> 
-                            let newHp = target.currentHp - 10
-                            match newHp > 0 with
-                            | true -> Some {target with currentHp = newHp}
-                            | false -> None
-
-                        
                     
-                    )
+                    let mutable currentHit : Option<LastHitInfo> = None
+                    
+                    let updTarg = 
+                        model.targets
+                        |> HashMap.alter hit (fun altV -> 
+                            match altV with
+                            | None -> 
+                                currentHit <- None
+                                None
+                            | Some target -> 
+                                let damageMultiplier =
+                                    match model.lastHit with
+                                    | Some lh -> if lh.name = hit then lh.hitSeries + 1 else 1
+                                    | None -> 1
+                                let newHp = target.currentHp - 10 * damageMultiplier
+                                match newHp > 0 with
+                                | true -> 
+                                    let newHitInfo: LastHitInfo = 
+                                        match model.lastHit with
+                                        | Some lh when lh.name = hit -> 
+                                            { lh with 
+                                                hitSeries = lh.hitSeries + 1
+                                            }
+                                        | _ ->
+                                            {
+                                                name        = hit
+                                                hitSeries   = 1
+                                            }
+                                    currentHit <- Some newHitInfo
+                                    Some {target with currentHp = newHp}
+                                | false -> 
+                                    currentHit <- None
+                                    None
+                        )
 
+                    updTarg, currentHit
 
-                //|> HashMap.map (fun name t -> 
-                  //  {t with currentHp = t.currentHp - 10}
-                //)
-            
-            //let newTargets =
-            //    HashMap.union model.targets hittedTarget
-            //    |> HashMap.filter (fun n t -> 
-            //        t.currentHp > 0
-            //    )
-            //
-            {model with targets = updatedTargets}
+            {model with targets = updatedTargets; lastHit = updatedLastHit}
 
     let view (env : Environment<Message>) (model : AdaptiveModel) =
         events env
         let worldSg =
             model.world.Scene env.Window
 
-        let gunSg = Gun.scene env.Window
+        let gunSg = Weapon.scene env.Window model.activeWeapon
         let textSg = 
             Text.statusTextSg env.Window (model.camera.velocity |> AVal.map (fun v -> sprintf "%.2f" v.Length)) (AVal.constant true)
 
