@@ -141,8 +141,8 @@ module Game =
         
         let world = 
             //World.treeWorld env.Window atlas tree 1.75
-            World.randomGenerated 20000 (V2i(200,200)) 1.85
-        let center = world.Bounds.Center.XYZ// + world.Bounds.Max.OOZ
+            World.randomGenerated 2000 (V2i(100,100)) 1.85
+        let center = world.Bounds.Center.XYZ + V3d.OOI*10.0// + world.Bounds.Max.OOZ
         let cam = { CameraController.initial with camera = CameraView.lookAt center (center + V3d.IOO) V3d.OOI }
 
         let (p1, floor) = 
@@ -157,7 +157,7 @@ module Game =
             
         let initialTargets = 
             HashMap.ofList [
-                for i = 0 to 10 - 1 do
+                for i = 0 to 20 - 1 do
                     let randomHealth = random.Next(10,200)
                     let randomRadius = random.Next(3,10)
                     let randomPosition = V3d(random.Next(-50,50),random.Next(-50,50),random.Next(3,20))
@@ -173,7 +173,7 @@ module Game =
             proj = Frustum.perspective 90.0 0.1 1000.0 1.0
             time = 0.0
             targets = initialTargets
-            moveSpeed = 25.5
+            moveSpeed = 10.5
             airAccel = 0.0012
             lastHit = None
             weapons = HashMap.ofArray[|

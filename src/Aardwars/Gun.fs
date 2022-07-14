@@ -82,22 +82,23 @@ module Weapon =
                 |> Frustum.projTrafo
             )
             
-        
+        let lg =
+            Import.importGun("gun") 
+            |> Sg.transform (
+                    Trafo3d.Scale(1.0,1.0,-1.0) *
+                    Trafo3d.Scale(0.25) *
+                    Trafo3d.Translation(1.0,-1.0,-1.0))
+        let sg = 
+            Import.importGun("shotgun") 
+            |> Sg.transform (
+                    Trafo3d.Scale(1.0,1.0,-1.0) *
+                    Trafo3d.Scale(0.18) *
+                    Trafo3d.Translation(1.5,-1.0,-1.8))
         let task =  
             activeWeapon
             |> AVal.map (function 
-                | Primary -> 
-                    Import.importGun("gun") 
-                    |> Sg.transform (
-                            Trafo3d.Scale(1.0,1.0,-1.0) *
-                            Trafo3d.Scale(0.25) *
-                            Trafo3d.Translation(1.0,-1.0,-1.0))
-                | Secondary -> 
-                    Import.importGun("shotgun") 
-                    |> Sg.transform (
-                            Trafo3d.Scale(1.0,1.0,-1.0) *
-                            Trafo3d.Scale(0.18) *
-                            Trafo3d.Translation(1.5,-1.0,-1.8))
+                | Primary -> lg
+                | Secondary -> sg
             )
             |> Sg.dynamic
             |> Sg.shader {
