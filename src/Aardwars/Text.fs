@@ -28,11 +28,12 @@ module Text =
                     let x = maxX - bounds.Max.X - 0.02
                     let y = 0.0 - bounds.Max.Y - 0.02
                     Trafo3d.Scale(scale) *
-                    Trafo3d.Translation(x, y, -1.0)
+                    Trafo3d.Translation(x, y, -1.0) 
+
                 )
             Sg.shape shape
             |> Sg.trafo trafo
-            
+
         let velocityCounter =
             let shape = 
                 t |> AVal.map (fun t -> font.Layout(C4b.White, t))

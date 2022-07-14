@@ -109,8 +109,8 @@ module Target =
         let textSg = 
             Sg.textWithConfig cfg (AVal.constant (sprintf "%s: %d" name t.currentHp))
             |> Sg.transform (
-                Trafo3d.RotationYInDegrees(90.0) *
-                Trafo3d.Translation(t.pos + V3d.OOI * (t.radius+0.5))
+                Trafo3d.RotationXInDegrees(90.0) *
+                Trafo3d.Translation(t.pos + V3d.OOI * (t.radius+0.5))  
             )
 
 
