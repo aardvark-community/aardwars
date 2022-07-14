@@ -125,6 +125,21 @@ module Game =
         ) |> ignore
 
 
+   //let randomTargets = 
+   //    type Target =
+   //{
+   //    currentHp : int
+   //    maxHp : int
+   //    pos : V3d
+   //    radius : float
+   //}
+       
+        
+             
+             
+             
+        
+
 
     let intitial (env : Environment<Message>) = 
     
@@ -250,12 +265,23 @@ module Game =
         let (p1, floor) = 
             world.Hit (cam.camera.Location + V3d(0,0,1000)) cam.camera.Location
 
-        let initialTargets =
+       //let initialTargets =
+       //    HashMap.ofList [
+       //        "target_0", {currentHp = 50; pos = V3d(0.0,0.0,5.0); radius = 0.5; maxHp = 50}
+       //        "target_1", {currentHp = 150; pos = V3d(4.0,4.0,4.0); radius = 2.0; maxHp = 150}
+       //    ]
+        let random = System.Random() 
+            
+        let initialTargets = 
             HashMap.ofList [
-                "target_0", {currentHp = 50; pos = V3d(0.0,0.0,5.0); radius = 0.5; maxHp = 50}
-                "target_1", {currentHp = 150; pos = V3d(4.0,4.0,4.0); radius = 2.0; maxHp = 150}
+                for i = 0 to 10 - 1 do
+                    let randomHealth = random.Next(10,200)
+                    let randomRadius = random.Next(0,10)
+                    let randomPosition = V3d(random.Next(-50,50),random.Next(-50,50),random.Next(3,20))
+                    let name = sprintf "target_%i" i
+                    name,{currentHp = randomHealth; maxHp = randomHealth; pos = randomPosition ;radius = randomRadius }   
             ]
-
+        
         {
             world = world
             onFloor = floor
@@ -367,9 +393,10 @@ module Game =
                 let p = model.camera.camera.Location
                 let d = model.camera.camera.Forward
                 Ray3d(p, d)
-            let hittedTargets =
+            
+            let hittedTarget =
                 model.targets 
-                |> HashMap.filter (fun name t -> 
+                |> HashMap.choose (fun name t -> 
                     let s = Sphere3d(t.pos, t.radius)
                     //let r = t.radius
                     //let d = model.camera.camera.Forward
@@ -380,20 +407,50 @@ module Game =
                     let d0 = t.pos - model.camera.camera.Location
                     let d1 = model.camera.camera.Forward
                     let inFront = (Vec.dot d0.Normalized d1.Normalized) > 0.0
-
-                    shotRay.Intersects(s) && inFront
+                    let mutable tout = 0.0
+                    let isHit = shotRay.HitsSphere(t.pos,t.radius,&tout)
+                    //shotRay.Intersects(s) && inFront
+                    match isHit && inFront with
+                    |true -> Some tout
+                    |false -> None
                 ) 
-                |> HashMap.map (fun name t -> 
-                    {t with currentHp = t.currentHp - 10}
-                )
-            
-            let newTargets =
-                HashMap.union model.targets hittedTargets
-                |> HashMap.filter (fun n t -> 
-                    t.currentHp > 0
-                )
+                |> HashMap.toList
+                |> List.sortBy snd
+                |> List.tryHead
+                |> Option.map fst
 
-            {model with targets = newTargets}
+            let updatedTargets : HashMap<string, Target> =
+                match hittedTarget with
+                | None -> model.targets
+                | Some hit -> 
+                    model.targets
+                    |> HashMap.alter hit (fun altV -> 
+                        
+                        
+                        match altV with
+                        |None -> None
+                        |Some target -> 
+                            let newHp = target.currentHp - 10
+                            match newHp > 0 with
+                            | true -> Some {target with currentHp = newHp}
+                            | false -> None
+
+                        
+                    
+                    )
+
+
+                //|> HashMap.map (fun name t -> 
+                  //  {t with currentHp = t.currentHp - 10}
+                //)
+            
+            //let newTargets =
+            //    HashMap.union model.targets hittedTarget
+            //    |> HashMap.filter (fun n t -> 
+            //        t.currentHp > 0
+            //    )
+            //
+            {model with targets = updatedTargets}
 
     let view (env : Environment<Message>) (model : AdaptiveModel) =
         events env
