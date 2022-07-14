@@ -149,7 +149,6 @@ module World =
                     let pos = Motion.repairMotion p0 p1 b 0.2
                     match pos with
                     | Some (z, p) -> 
-                        printfn "intersect"
                         if z then zUp <- true
                         p
                     | None -> p1

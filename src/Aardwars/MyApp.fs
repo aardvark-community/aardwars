@@ -196,7 +196,23 @@ module Game =
                                         exists x (y + 1) z &&
                                         exists x (y - 1) z &&
                                         exists x y (z + 1) &&
-                                        exists x y (z - 1)
+                                        exists x y (z - 1) &&
+                                        
+                                        exists (x - 1) (y + 1) z &&
+                                        exists (x + 1) (y + 1) z &&
+                                        exists (x - 1) (y - 1) z &&
+                                        exists (x + 1) (y - 1) z &&
+                                        
+                                        exists (x - 1) y (z + 1) &&
+                                        exists (x + 1) y (z + 1) &&
+                                        exists (x - 1) y (z - 1) &&
+                                        exists (x + 1) y (z - 1) &&
+                                        
+                                        exists x (y - 1) (z + 1) &&
+                                        exists x (y + 1) (z + 1) &&
+                                        exists x (y - 1) (z - 1) &&
+                                        exists x (y + 1) (z - 1)
+
                                     if not occluded then
                                         let mat = s.BlockStates.[i]
                                         let info = 

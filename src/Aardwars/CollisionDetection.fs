@@ -13,8 +13,6 @@ module Motion =
             None
         else
             let dir = p1 - p0
-            let (bMin, _) = b.GetMinMaxInDirection(dir)
-
 
             let pt = p1.GetClosestPointOn(b)
             let d = Vec.distance pt p1
