@@ -140,7 +140,9 @@ module Game =
     let intitial (env : Environment<Message>) = 
         
         let world = 
-            //World.treeWorld env.Window atlas tree 1.75
+            //let region = @"C:\Users\smaierhofer\Desktop\Notre Dame and Medieval City"
+            //let asset = @"C:\Users\smaierhofer\Desktop\blockstextures\textures"
+            //World.treeWorld env.Window region asset 1.75
             World.randomGenerated 2000 (V2i(100,100)) 1.85
         let center = world.Bounds.Center.XYZ + V3d.OOI*10.0// + world.Bounds.Max.OOZ
         let cam = { CameraController.initial with camera = CameraView.lookAt center (center + V3d.IOO) V3d.OOI }
@@ -232,6 +234,13 @@ module Game =
         | KeyUp Keys.Space -> model |> cam (CameraMessage.StopMove (V3d(0.0, 0.0, 10.0)))
         | KeyDown Keys.D1 -> { model with activeWeapon = Primary}
         | KeyDown Keys.D2 -> { model with activeWeapon = Secondary}
+
+
+        | KeyDown Keys.Back -> 
+            let respawnLocation = model.world.Bounds.Center.XYZ + V3d.OOI*10.0
+            let newCameraView = model.camera.camera.WithLocation(respawnLocation)
+            let modelCamera = { model.camera with camera = newCameraView  }
+            { model with camera = modelCamera }
         
         | KeyDown Keys.O -> 
             let n = model.moveSpeed + 0.1
