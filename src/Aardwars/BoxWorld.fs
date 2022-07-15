@@ -216,14 +216,18 @@ type OctRenderNode(level : int, root : option<ILodTreeNode>, parent : option<ILo
             | Leaf(_,_,_,es) ->
                 let offsets = 
                     es |> List.map (fun e -> 
-                        let pa = fixed [| (uint32 e.MaterialId.Y <<< 16) ||| (uint32 e.MaterialId.X) |]
-                        let f : float32 = NativePtr.read (NativePtr.cast pa)
+                        let f = 
+                            (uint32 e.MaterialId.Y <<< 16) ||| (uint32 e.MaterialId.X) 
+                            |> System.BitConverter.GetBytes 
+                            |> System.BitConverter.ToSingle
                         V4f(float32 e.Offset.X, float32 e.Offset.Y, float32 e.Offset.Z, f)
                     ) |> List.toArray
                 let scales =    
                     es |> List.map (fun e -> 
-                        let pa = fixed [| (uint32 e.RenderStyle <<< 16) ||| (uint32 e.MaterialId.X) |]
-                        let f : float32 = NativePtr.read (NativePtr.cast pa)
+                        let f = 
+                            (uint32 e.RenderStyle <<< 16) ||| (uint32 e.MaterialId.Z)
+                            |> System.BitConverter.GetBytes 
+                            |> System.BitConverter.ToSingle
                         V4f(1.0f, 1.0f, 1.0f, f)
                     ) |> List.toArray
 

@@ -46,7 +46,13 @@
 	  <EmbeddedResource Include="assets\steelfloortexture.jpg"><CopyToOutputDirectory>Always</CopyToOutputDirectory></EmbeddedResource>
 	  <EmbeddedResource Include="assets\steelwalltexture.jpg"><CopyToOutputDirectory>Always</CopyToOutputDirectory></EmbeddedResource>
 	  <EmbeddedResource Include="assets\watertexture.jpg"><CopyToOutputDirectory>Always</CopyToOutputDirectory></EmbeddedResource>
-	  <Compile Include="Util.fs" />
+    <EmbeddedResource Include="CubeMap\miramar_bk.png" />
+    <EmbeddedResource Include="CubeMap\miramar_dn.png" />
+    <EmbeddedResource Include="CubeMap\miramar_ft.png" />
+    <EmbeddedResource Include="CubeMap\miramar_lf.png" />
+    <EmbeddedResource Include="CubeMap\miramar_rt.png" />
+    <EmbeddedResource Include="CubeMap\miramar_up.png" />
+    <Compile Include="Util.fs" />
 	  <Compile Include="RandomBoxes.fs" />
 	  <Compile Include="Gun.fs" />
 	  <Compile Include="Text.fs" />

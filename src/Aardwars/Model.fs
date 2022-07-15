@@ -31,6 +31,9 @@ module Shader =
             [<Position>]
             pos : V4d
 
+            [<TexCoord>]
+            tc : V2d
+
             [<Semantic("VertexPos")>]
             vert : V4d
             
@@ -43,21 +46,28 @@ module Shader =
             [<Semantic("Scale")>]
             scale : V4d
             
-            [<Semantic("TextureIds"); Interpolation(InterpolationMode.Flat)>]
-            texIds : V3i
+            [<Semantic("TextureId"); Interpolation(InterpolationMode.Flat)>]
+            texId : int
             
             [<Semantic("RenderStyle"); Interpolation(InterpolationMode.Flat)>]
             renderStyle : int
         }
-
+        
+    let sammy =
+        sampler2dArray {
+            texture uniform?Atlas
+            addressU WrapMode.Wrap
+            addressV WrapMode.Wrap
+            filter Filter.MinLinearMagPointMipLinear
+        }
     let boxy (v : Vertex) =
         vertex {
-            let bb = Bitwise.FloatBitsToUInt v.off.W
-            let top = bb >>> 16
-            let bottom = bb &&& 0xFFFFu
-            let bb = Bitwise.FloatBitsToUInt v.scale.W
-            let renderStyle = int (bb >>> 16)
-            let side = bb &&& 0xFFFFu
+            let bb1 = Bitwise.FloatBitsToUInt v.off.W
+            let top = bb1 >>> 16
+            let bottom = bb1 &&& 0xFFFFu
+            let bb2 = Bitwise.FloatBitsToUInt v.scale.W
+            let renderStyle = int (bb2 >>> 16)
+            let side = bb2 &&& 0xFFFFu
 
             let mutable vp = v.pos.XYZ
             if renderStyle = 1 then
@@ -72,31 +82,31 @@ module Shader =
             if renderStyle = 1 then
                 if abs v.n.Z > 0.01 then pos <- V4d(1000.0, 1000.0, -1000.0, 1.0)
 
+            let tc =
+                if abs v.n.Z > 0.01 then V2d(v.pos.X, v.pos.Y)
+                elif abs v.n.Y > 0.0 then V2d(v.pos.X, v.pos.Z)
+                else V2d(v.pos.Y, v.pos.Z)
+                
+            let texId =
+                if v.n.Z > 0.01 then int top
+                elif v.n.Z < 0.01 then int bottom
+                else int side
+
             return { 
                 v with 
                     vert = v.pos
                     pos = pos
-                    texIds = V3i(int bottom, int top, int side)
+                    texId = texId
                     renderStyle = renderStyle
+                    tc = tc
                     n = n
             }
         }
 
-    let sammy =
-        sampler2dArray {
-            texture uniform?Atlas
-            addressU WrapMode.Wrap
-            addressV WrapMode.Wrap
-            filter Filter.MinLinearMagPointMipLinear
-        }
         
     let texy (v : Vertex) =
         fragment {
-            let color = 
-                if v.n.Z > 0.5 then sammy.Sample(v.vert.XY, v.texIds.Y)
-                elif v.n.Z < -0.5 then sammy.Sample(v.vert.XY, v.texIds.X)
-                elif abs v.n.X > 0.5 then sammy.Sample(v.vert.YZ, v.texIds.Z)
-                else sammy.Sample(v.vert.XZ, v.texIds.Z)
+            let color = sammy.Sample(v.tc, v.texId)
             if color.W < 0.05 then discard()
 
 
