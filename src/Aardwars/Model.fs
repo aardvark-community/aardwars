@@ -262,6 +262,12 @@ type LastHitInfo =
         hitSeries   : int
     }
 
+type TrailInfo = 
+    {
+        Line        :  Line3d
+        startTime   :  float
+        duration    :  float
+    }
 
 [<ModelType>]
 type Model =
@@ -279,6 +285,7 @@ type Model =
         lastHit     : Option<LastHitInfo>
         weapons     : HashMap<WeaponType,Weapon>
         activeWeapon: WeaponType
+        shotTrails  : HashSet<TrailInfo>
 
     }
 

@@ -183,6 +183,7 @@ module Game =
                     Secondary,Weapon.shotGun
                 |]
             activeWeapon = Primary
+            shotTrails = HashSet.empty
         }
 
     let update (env : Environment<Message>) (model : Model) (message : Message) =
@@ -234,42 +235,39 @@ module Game =
         | KeyUp Keys.Space -> model |> cam (CameraMessage.StopMove (V3d(0.0, 0.0, 10.0)))
         | KeyDown Keys.D1 -> { model with activeWeapon = Primary}
         | KeyDown Keys.D2 -> { model with activeWeapon = Secondary}
-
-
         | KeyDown Keys.Back -> 
             let respawnLocation = model.world.Bounds.Center.XYZ + V3d.OOI*10.0
             let newCameraView = model.camera.camera.WithLocation(respawnLocation)
             let modelCamera = { model.camera with camera = newCameraView  }
             { model with camera = modelCamera }
-        
         | KeyDown Keys.O -> 
             let n = model.moveSpeed + 0.1
             printfn "moveSpeed %.2f" n
             { model with moveSpeed = n }
-
         | KeyDown Keys.P -> 
             let n = model.moveSpeed - 0.1
             printfn "moveSpeed %.2f" n
             { model with moveSpeed = n }
-
         | KeyDown Keys.U -> 
             let n = model.airAccel + 0.00005
             printfn "airAccel %f" n
             { model with airAccel = n }
-
         | KeyDown Keys.I -> 
             let n = model.airAccel - 0.00005
             printfn "airAccel %f" n
             { model with airAccel = n }
-
         | Resize s -> 
             { model with 
                 size = s
                 proj = Frustum.perspective 90.0 0.1 1000.0 (float s.X / float s.Y) 
             }
-
         | UpdateTime(t, dt) ->
             let model = model |> cam (CameraMessage.UpdateTime(t, dt))
+            let newTrailSet = 
+                model.shotTrails
+                |> HashSet.filter (fun trail -> trail.duration + trail.startTime > t)
+            let model = { model with shotTrails = newTrailSet}
+
             if model.onFloor then
                 { model with
                     time = t
@@ -293,6 +291,18 @@ module Game =
                 let p = model.camera.camera.Location
                 let d = model.camera.camera.Forward
                 Ray3d(p, d)
+            let shotTrail = 
+                let p0 = shotRay.Origin
+                let range = (model.weapons.Item model.activeWeapon).range
+                let p1 = shotRay.Origin + range * shotRay.Direction
+                let line = Line3d(p0, p1)
+                {
+                    Line = line
+                    startTime = model.time
+                    duration = 1.0
+                }
+            let newTrailset = HashSet.add shotTrail model.shotTrails
+               
             
             let hittedTarget =
                 model.targets 
@@ -371,7 +381,12 @@ module Game =
             let updatedWeapon = model.weapons.Item model.activeWeapon |> updateWeapon
             let updatedWeapons = model.weapons |> HashMap.add model.activeWeapon updatedWeapon
 
-            { model with targets = updatedTargets; lastHit = updatedLastHit; weapons = updatedWeapons }
+            { model with
+                targets = updatedTargets
+                lastHit = updatedLastHit
+                weapons = updatedWeapons
+                shotTrails = newTrailset
+            }
 
     let view (env : Environment<Message>) (model : AdaptiveModel) =
         events env
@@ -382,7 +397,20 @@ module Game =
         let textSg = 
             Text.statusTextSg env.Window (model.camera.velocity |> AVal.map (fun v -> sprintf "%.2f" v.Length)) (AVal.constant true)
 
-
+        let trailsSg = 
+            let lines = 
+                model.shotTrails 
+                |> ASet.map (fun t -> t.Line)
+                |> ASet.toAVal 
+                |> AVal.map HashSet.toArray
+            let color = C4b.Beige |> AVal.constant
+            Sg.lines color lines
+            |> Sg.shader{
+                do! DefaultSurfaces.trafo
+                do! DefaultSurfaces.thickLine
+                do! DefaultSurfaces.vertexColor
+            }
+            |> Sg.uniform' "LineWidth" (3.0)
         let targetsSg =
             model.targets 
             |> AMap.toASet 
@@ -392,7 +420,7 @@ module Game =
                
             ) |> Sg.set
             
-        Sg.ofList [worldSg; gunSg; textSg; targetsSg]
+        Sg.ofList [worldSg; gunSg; textSg; targetsSg; trailsSg]
             |> Sg.viewTrafo (model.camera.camera |> AVal.map CameraView.viewTrafo)
             |> Sg.projTrafo (model.proj |> AVal.map Frustum.projTrafo)
 
