@@ -175,8 +175,8 @@ module Game =
             proj = Frustum.perspective 90.0 0.1 1000.0 1.0
             time = 0.0
             targets = initialTargets
-            moveSpeed = 10.5
-            airAccel = 0.0012
+            moveSpeed = 8.0
+            airAccel = 0.000012
             lastHit = None
             weapons = HashMap.ofArray[|
                     Primary,Weapon.laserGun
@@ -361,7 +361,17 @@ module Game =
 
                     updTarg, currentHit
 
-            {model with targets = updatedTargets; lastHit = updatedLastHit}
+            let updateWeapon weapon = 
+                let updatedAmmo =
+                    match weapon.ammo with
+                    | Endless -> Endless
+                    | Limited ammoInfo -> Limited {ammoInfo with availableShots = ammoInfo.availableShots - 1}
+                {weapon with ammo = updatedAmmo}
+
+            let updatedWeapon = model.weapons.Item model.activeWeapon |> updateWeapon
+            let updatedWeapons = model.weapons |> HashMap.add model.activeWeapon updatedWeapon
+
+            { model with targets = updatedTargets; lastHit = updatedLastHit; weapons = updatedWeapons }
 
     let view (env : Environment<Message>) (model : AdaptiveModel) =
         events env
