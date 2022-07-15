@@ -147,7 +147,7 @@ module Game =
 
         let sections =
             //@"T:\Dropbox\Data\minecraft\Notre_Dame_and_Medieval_City\Notre Dame and Medieval City"
-            @"C:\Users\Schorsch\Downloads\Notre Dame and Medieval City"
+            @"C:\Users\Schorsch\Desktop\Small Worlds"
             |> Minecraft.getRegions
             //|> Seq.take 1
             |> Seq.collect Minecraft.enumerateRawNbtBuffers
@@ -220,20 +220,23 @@ module Game =
                                             | (true, t) -> t
                                             | _ -> Unknown
 
-                                        let texIds = 
+                                        let texIds, style = 
                                             match info with
-                                            | Unknown -> V3s(-1s, -1s, -1s)
-                                            | All t | Cross t ->
+                                            | Unknown -> V3s(-1s, -1s, -1s), RenderStyle.Box
+                                            | All t  ->
                                                 let id = getTextureId t
-                                                V3s(int16 id, int16 id, int16 id)
+                                                V3s(int16 id, int16 id, int16 id), RenderStyle.Box
+                                            | Cross t ->
+                                                let id = getTextureId t
+                                                V3s(int16 id, int16 id, int16 id), RenderStyle.Cross
                                             | BottomTop(bottom, top, side) ->
                                                 let bid = getTextureId bottom
                                                 let tid = getTextureId top
                                                 let sid = getTextureId side
-                                                V3s(int16 bid, int16 tid, int16 sid)
+                                                V3s(int16 bid, int16 tid, int16 sid), RenderStyle.Box
                                             
 
-                                        yield { Offset = off + V3s(x,z,y); MaterialId = texIds }
+                                        yield { Offset = off + V3s(x,z,y); MaterialId = texIds; RenderStyle = style  }
                                 i <- i + 1
                 |]
             tree <- Octree.add chunk tree
@@ -250,7 +253,7 @@ module Game =
                 try
                     let img = PixImageSharp.Create(textureList.[i]).ToPixImage<byte>(Col.Format.RGBA).SubImage(V2i.Zero, V2i(16,16))
 
-                    if textureList.[i].ToLower().Contains "_leaves" then 
+                    if textureList.[i].ToLower().Contains "_leaves" || textureList.[i].ToLower().Contains "grass_block_top" then 
                         img.GetMatrix<C4b>().SetMap(img.GetMatrix<C4b>(), fun c -> C4b(0uy, c.G, 0uy, c.A)) |> ignore
 
 
@@ -275,7 +278,7 @@ module Game =
             atlas
        
         let world = World.treeWorld env.Window atlas tree 1.75
-        let center = world.Bounds.Center.XYZ// + world.Bounds.Max.OOZ
+        let center = world.Bounds.Center.XYO + world.Bounds.Max.OOZ + V3d(0.1, 0.2, 0.4)
         let cam = { CameraController.initial with camera = CameraView.lookAt center (center + V3d.IOO) V3d.OOI }
 
         let (p1, floor) = 

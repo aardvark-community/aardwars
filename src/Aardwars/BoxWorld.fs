@@ -13,6 +13,9 @@ type V3s =
         val mutable public Y : int16
         val mutable public Z : int16
 
+        
+        override x.ToString() = sprintf "[%d, %d, %d]" x.X x.Y x.Z
+
         new(x : int16, y : int16, z : int16) = { X = x; Y = y; Z = z }
         new(x : int, y : int, z : int) = { X = int16 x; Y = int16 y; Z = int16 z }
 
@@ -21,12 +24,20 @@ type V3s =
 
     end
 
-[<Struct>]
+type RenderStyle =
+    | Box       = 0us
+    | Cross     = 1us
+
+[<Struct; StructuredFormatDisplay("{AsString}")>]
 type BoxInfo =
     {
         Offset : V3s
         MaterialId : V3s
+        RenderStyle : RenderStyle
     }
+    member private x.AsString = x.ToString()
+
+    override x.ToString() = string x.Offset
 
     member x.BoundingBox =
         let o = V3d(float x.Offset.X, float x.Offset.Y, float x.Offset.Z)
@@ -36,9 +47,14 @@ type BoxInfo =
 
 type OctNode<'a> =
     | Empty
-    | Leaf of cell : Cell * count : int * elements : list<'a>
-    | Node of cell : Cell * count : int * OctNode<'a>[]
+    | Leaf of cell : Cell * bounds : Box3d * count : int * elements : list<'a>
+    | Node of cell : Cell * bounds : Box3d * count : int * OctNode<'a>[]
     
+    member x.Bounds =
+        match x with
+        | Empty -> Box3d.Invalid
+        | Leaf(_,b,_,_) -> b
+        | Node(_,b,_,_) -> b
 
 type Block =
     | All of texture : string
@@ -94,6 +110,30 @@ type OctRenderNode(level : int, root : option<ILodTreeNode>, parent : option<ILo
     static let geometry =
         let g = IndexedGeometryPrimitives.Box.solidBox Box3d.Unit C4b.White
         g.Flat
+
+    static let crossGeometry =
+        let pos =
+            [| 
+                V3f(0.0f, 0.5f, 0.0f); V3f(1.0f, 0.5f, 0.0f); V3f(1.0f, 0.5f, 1.0f)
+                V3f(1.0f, 0.5f, 1.0f); V3f(0.0f, 0.5f, 0.0f); V3f(0.0f, 0.5f, 1.0f)
+                
+                V3f(0.5f, 0.0f, 0.0f); V3f(0.5f, 1.0f, 0.0f); V3f(0.5f, 1.0f, 1.0f)
+                V3f(0.5f, 1.0f, 1.0f); V3f(0.5f, 0.0f, 0.0f); V3f(0.5f, 0.0f, 1.0f)
+            |]
+        let ns =
+            [|
+                V3f.OIO; V3f.OIO; V3f.OIO; V3f.OIO; V3f.OIO; V3f.OIO 
+                V3f.IOO; V3f.IOO; V3f.IOO; V3f.IOO; V3f.IOO; V3f.IOO
+            |]
+
+        IndexedGeometry(
+            Mode = IndexedGeometryMode.TriangleList,
+            IndexedAttributes =
+                SymDict.ofList [
+                    DefaultSemantic.Positions, pos :> System.Array
+                    DefaultSemantic.Normals, ns :> System.Array
+                ]
+        )
     
     let children = 
         lazy (
@@ -102,7 +142,7 @@ type OctRenderNode(level : int, root : option<ILodTreeNode>, parent : option<ILo
                 | Some r -> r
                 | None -> this
             match node with
-            | Node(_,_,e) -> 
+            | Node(_,_,_,e) -> 
                 e |> Array.choose (fun n ->     
                     match n with
                     | Empty -> None
@@ -117,14 +157,14 @@ type OctRenderNode(level : int, root : option<ILodTreeNode>, parent : option<ILo
     let isLeaf =
         match node with
         | Empty -> true
-        | Leaf(c,_,_) -> true
+        | Leaf(_,_,_,_) -> true
         | _ -> false
 
     let localCellBounds =
         match node with
         | Empty -> Box3d.Unit
-        | Leaf(c,_,_) -> c.BoundingBox
-        | Node(c,_,_) -> c.BoundingBox
+        | Leaf(_,b,_,_) -> b
+        | Node(_,b,_,_) -> b
 
     let equivalentAngle60 (view : Trafo3d) (proj : Trafo3d) =
 
@@ -146,8 +186,8 @@ type OctRenderNode(level : int, root : option<ILodTreeNode>, parent : option<ILo
         member this.Cell =
             match node with
             | Empty -> Cell.Unit
-            | Leaf(c,_,_) -> c
-            | Node(c,_,_) -> c
+            | Leaf(c,_,_,_) -> c
+            | Node(c,_,_,_) -> c
 
         member this.Children = children.Value :> seq<_>
 
@@ -171,7 +211,7 @@ type OctRenderNode(level : int, root : option<ILodTreeNode>, parent : option<ILo
                     "Offset", Array.empty<V4f> :> System.Array
                     "Scale", Array.empty<V4f> :> System.Array
                 ]
-            | Leaf(_,_,es) ->
+            | Leaf(_,_,_,es) ->
                 let offsets = 
                     es |> List.map (fun e -> 
                         let pa = fixed [| (uint32 e.MaterialId.Y <<< 16) ||| (uint32 e.MaterialId.X) |]
@@ -180,16 +220,18 @@ type OctRenderNode(level : int, root : option<ILodTreeNode>, parent : option<ILo
                     ) |> List.toArray
                 let scales =    
                     es |> List.map (fun e -> 
-                        V4f(1.0f, 1.0f, 1.0f, float32 e.MaterialId.Z)
+                        let pa = fixed [| (uint32 e.RenderStyle <<< 16) ||| (uint32 e.MaterialId.X) |]
+                        let f : float32 = NativePtr.read (NativePtr.cast pa)
+                        V4f(1.0f, 1.0f, 1.0f, f)
                     ) |> List.toArray
+
 
                 geometry, 
                 MapExt.ofList [
                     "Offset", offsets :> System.Array
                     "Scale", scales :> System.Array
                 ]
-            | Node(c,_,_) ->
-                let bb = c.BoundingBox
+            | Node(_,bb,_,_) ->
                 geometry, 
                 MapExt.ofList [
                     "Offset", [| V4f(V3f bb.Min, 0.0f) |] :> System.Array
@@ -204,7 +246,7 @@ type OctRenderNode(level : int, root : option<ILodTreeNode>, parent : option<ILo
         member this.DataSize =
             match node with
             | Empty -> 0
-            | Leaf(_,c,_) -> c
+            | Leaf(_,_,c,_) -> c
             | Node _ -> 1
 
         member this.DataSource = DefaultSemantic.CreaseAngle
@@ -216,18 +258,18 @@ type OctRenderNode(level : int, root : option<ILodTreeNode>, parent : option<ILo
         member this.TotalDataSize = 
             match node with
             | Empty -> 0
-            | Leaf(_,c,_) -> c
-            | Node(_,c,_) -> c
+            | Leaf(_,_,c,_) -> c
+            | Node(_,_,c,_) -> c
         member this.WorldBoundingBox = 
             match node with
             | Empty -> Box3d.Invalid
-            | Leaf(c,_,_) -> c.BoundingBox
-            | Node(c,_,_) -> c.BoundingBox
+            | Leaf(_,b,_,_) -> b
+            | Node(_,b,_,_) -> b
         member this.WorldCellBoundingBox = 
             match node with
             | Empty -> Box3d.Invalid
-            | Leaf(c,_,_) -> c.BoundingBox
-            | Node(c,_,_) -> c.BoundingBox
+            | Leaf(_,b,_,_) -> b
+            | Node(_,b,_,_) -> b
 
     new(node : OctNode<BoxInfo>) =
         OctRenderNode(0, None, None, node)
@@ -244,20 +286,20 @@ type Octree<'a>(root : OctNode<'a>, bounds : Box3d, leafLimit : int, getBounding
     member x.Count =
         match root with
         | Empty -> 0
-        | Leaf(_,c,_) -> c
-        | Node(_,c,_) -> c
+        | Leaf(_,_,c,_) -> c
+        | Node(_,_,c,_) -> c
 
     member x.GetIntersecting(b : Box3d) =
         let rec findIntersecting (b : Box3d) (node : OctNode<'a>) =
             match node with
             | Empty -> Seq.empty
-            | Leaf(cell,_,e) ->
-                if cell.BoundingBox.Intersects b then
+            | Leaf(_,bounds,_,e) ->
+                if bounds.Intersects b then
                     e |> Seq.filter (fun e -> (getBoundingBox e).Intersects b)
                 else 
                     Seq.empty
-            | Node(cell,_,c) ->
-                if cell.BoundingBox.Intersects b then
+            | Node(_,bounds,_,c) ->
+                if bounds.Intersects b then
                     c |> Seq.collect (findIntersecting b)
                 else
                     Seq.empty
@@ -269,6 +311,80 @@ type Octree<'a>(root : OctNode<'a>, bounds : Box3d, leafLimit : int, getBounding
 
 module Octree =
     let empty<'a> (limit : int) (getBoundingBox : 'a -> Box3d) = Octree<'a>(Empty, Box3d.Invalid, limit, getBoundingBox)
+
+    module Seq =
+        open System.Collections
+        open System.Collections.Generic
+
+        type MergedEnumerator<'k, 'v when 'k : comparison>(es : IEnumerator<'k * 'v>[]) =
+            let mutable current = HashSet.ofArray es
+            let mutable value = Unchecked.defaultof<_>
+            let mutable initial = true
+
+            member x.MoveNext() =
+                if current.Count = 0 then
+                    false
+                else
+                    let success = 
+                        if initial then current |> HashSet.filter (fun c -> c.MoveNext())
+                        else current
+                    initial <- false
+
+                    if success.Count = 0 then
+                        current <- HashSet.empty
+                        false
+                    else
+                        use mutable e = success.GetEnumerator()
+                        e.MoveNext() |> ignore
+                        let mutable bestThing = e.Current
+                        let mutable (bestKey, bestValue) = bestThing.Current
+                        while e.MoveNext() do
+                            let thing = e.Current
+                            let (k,v) = thing.Current
+                            if k < bestKey then
+                                bestThing <- thing
+                                bestKey <- k
+                                bestValue <- v
+
+                        if not (bestThing.MoveNext()) then current <- HashSet.remove bestThing current
+                        value <- (bestKey, bestValue)
+                        true
+
+            member x.Current = value
+
+            member x.Reset() =
+                current <- HashSet.ofArray es
+                for e in es do e.Reset()
+                initial <- true
+                value <- Unchecked.defaultof<_>
+
+            interface IEnumerator with
+                member x.MoveNext() = x.MoveNext()
+                member x.Current = x.Current :> obj
+                member x.Reset() = x.Reset()
+
+            interface IEnumerator<'k * 'v> with
+                member x.Current = x.Current
+                member x.Dispose() =
+                    current <- HashSet.empty
+                    initial <- false
+                    value <- Unchecked.defaultof<_>
+                
+        type MergedEnumerable<'k, 'v when 'k : comparison>(things : seq<'k * 'v>[]) =
+            
+            member x.GetEnumerator() = new MergedEnumerator<'k, 'v>(things |> Array.map (fun e -> e.GetEnumerator()))
+
+            interface IEnumerable with
+                member x.GetEnumerator() = new MergedEnumerator<'k, 'v>(things |> Array.map (fun e -> e.GetEnumerator())) :> _
+                
+            interface IEnumerable<'k * 'v> with
+                member x.GetEnumerator() = new MergedEnumerator<'k, 'v>(things |> Array.map (fun e -> e.GetEnumerator())) :> _
+
+        let mergeSorted (things : #seq<seq<'k * 'v>>) =
+            MergedEnumerable(Seq.toArray things) :> seq<_>
+
+
+
 
     let add (things : 'a[]) (tree : Octree<'a>) =
         if things.Length <= 0 then
@@ -282,16 +398,17 @@ module Octree =
                 match node with
                 | Empty ->
                     failwith "shouldn't happen"
-                | Leaf(cell, cnt, elements) ->
-                        
+                | Leaf(cell, bounds, cnt, elements) ->
+                    
                     let newCnt = cnt + boxes.Length
                     if newCnt <= tree.LeafLimit then
-                        Leaf(cell, newCnt, Array.toList things @ elements)
+                        Leaf(cell, bounds.Union (Box3d boxes), newCnt, Array.toList things @ elements)
                     else
                         let c = cell.GetCenter()
                         
                         let subThings = Array.init 8 (fun _ -> System.Collections.Generic.List(things.Length))
                         let subBoxes = Array.init 8 (fun _ -> System.Collections.Generic.List(things.Length))
+                        let subBounds = Array.create 8 Box3d.Invalid
                         for i in 0 .. things.Length - 1 do
                             let cc = boxes.[i].Center
 
@@ -302,6 +419,7 @@ module Octree =
 
                             subThings.[oct].Add things.[i]
                             subBoxes.[oct].Add boxes.[i]
+                            subBounds.[oct].ExtendBy boxes.[i]
 
                         for thing in elements do
                             let box = tree.GetBoundingBox thing
@@ -314,6 +432,7 @@ module Octree =
 
                             subThings.[oct].Add thing
                             subBoxes.[oct].Add box
+                            subBounds.[oct].ExtendBy box
                             
 
 
@@ -322,14 +441,15 @@ module Octree =
                             Array.init 8 (fun i ->
                                 let things = subThings.[i].ToArray()
                                 let boxes = subBoxes.[i].ToArray()
+                                let bb = subBounds.[i]
                                 if things.Length > 0 then
-                                    Leaf(childCells.[i], 0, []) |> insertContained things boxes 
+                                    Leaf(childCells.[i],bb, 0, []) |> insertContained things boxes 
                                 else
                                     Empty
                             )
-                        Node(cell, cnt + boxes.Length, children)
+                        Node(cell, Box3d subBounds, cnt + boxes.Length, children)
 
-                | Node(cell, cnt, children) ->
+                | Node(cell, bounds, cnt, children) ->
                     let c = cell.GetCenter()
                         
                     let subThings = Array.init 8 (fun _ -> System.Collections.Generic.List(things.Length))
@@ -351,27 +471,28 @@ module Octree =
                             let boxes = subBoxes.[i].ToArray()
                             if things.Length > 0 then 
                                 match c with
-                                | Empty -> Leaf(cell.Children.[i], 0, []) |> insertContained things boxes
+                                | Empty -> Leaf(cell.Children.[i], Box3d.Invalid, 0, []) |> insertContained things boxes
                                 | c -> insertContained things boxes c
                             else c
                         )   
-                    Node(cell, cnt + boxes.Length, newChildren)
+                    let newBounds = newChildren |> Array.map (fun c -> c.Bounds) |> Box3d
+                    Node(cell, newBounds, cnt + boxes.Length, newChildren)
 
             match tree.Root with
             | Empty -> 
                 let newRoot = 
-                    Leaf(c, 0, [])
+                    Leaf(c, Box3d.Invalid, 0, [])
                     |> insertContained things boxes 
                 Octree(newRoot, tree.BoundingBox.Union bounds, tree.LeafLimit, tree.GetBoundingBox)
 
-            | Leaf(rootCell, cnt, elements) ->
+            | Leaf(rootCell, rootBounds, cnt, elements) ->
                 let newRootCell = Cell.GetCommonRoot(rootCell, c)
                 let newRoot =
-                    Leaf(newRootCell, cnt, elements)
+                    Leaf(newRootCell, rootBounds, cnt, elements)
                     |> insertContained things boxes
                 Octree(newRoot, tree.BoundingBox.Union bounds, tree.LeafLimit, tree.GetBoundingBox)
 
-            | Node(rootCell,cnt,childNodes) ->
+            | Node(rootCell,rootBounds,cnt,childNodes) ->
                 let newRootCell = Cell.GetCommonRoot(rootCell, c)
 
                 let rec wrap (current : Cell) (targetCell : HashMap<Cell, OctNode<'a>>) =   
@@ -399,14 +520,14 @@ module Octree =
                                     let childCell = children.[i]
                                     wrap childCell map
                             )
-                        Node(current, cnt, newChildren)
+                        Node(current, rootBounds, cnt, newChildren)
 
                 let insertCells =
                     if rootCell.IsCenteredAtOrigin then
                         childNodes |> Array.choose (fun n ->
                             match n with
-                            | Node(c,_,_) -> Some (c, n)
-                            | Leaf(c,_,_) -> Some (c, n)
+                            | Node(c,_,_,_) -> Some (c, n)
+                            | Leaf(c,_,_,_) -> Some (c, n)
                             | Empty -> None
                         ) |> HashMap.ofArray
                     else
@@ -418,6 +539,99 @@ module Octree =
                 Octree(newRoot, tree.BoundingBox.Union bounds, tree.LeafLimit, tree.GetBoundingBox)
 
 
+    //let eps = 1E-6
+    let inline private intersect (ray : FastRay3d, b : Box3d, t0 : byref<float>, t1 : byref<float>) =
+        //let b = Box3d(b.Min - V3d(eps,eps,eps), b.Max + V3d(eps, eps, eps))
+        ray.Intersects(b, &t0, &t1)
 
+    let rayIntersections (ray : Ray3d) (tmin : float) (tmax : float) (tree : Octree<'a>) =
+        let ray = FastRay3d ray
+        let cmp = System.Func<_,_,_>(fun (t0, _) (t1,_) -> compare t0 t1)
+
+
+
+        let rec traverse (ray : FastRay3d) (tmin : float) (tmax : float) (node : OctNode<'a>) =
+            match node with
+            | Empty ->
+                Seq.empty
+            | Leaf(_,b,_,es) ->
+                let res = System.Collections.Generic.List()
+                for e in es do
+                    let bb = tree.GetBoundingBox e
+                    let mutable t0 = tmin
+                    let mutable t1 = tmax
+                    if intersect(ray, bb, &t0, &t1) && t0 >= tmin && t0 <= tmax then
+                        res.HeapEnqueue(cmp, (t0, e))
+                    
+                Array.init res.Count (fun _ -> res.HeapDequeue(cmp)) :> seq<_>
+
+            | Node(_,b,_,cs) ->
+                let mutable t0 = tmin
+                let mutable t1 = tmax
+
+                let subnodes = 
+                    cs |> Array.choose (fun c ->
+                        match c with
+                        | Empty -> None
+                        | Leaf(_,b,_,_) | Node(_,b,_,_) ->
+                            t0 <- tmin
+                            t1 <- tmax
+                            if intersect(ray, b, &t0, &t1) && t1 >= tmin && t0 <= tmax then
+                                let tmin = max t0 tmin
+                                let tmax = min t1 tmax
+                                Some (tmin, tmax, c)
+                            else
+                                None
+                    )
+                    |> Array.sortBy (fun (t,_,_) -> t)
+
+
+                let overlap = 
+                    let mutable o = false
+                    let ranges = subnodes |> Array.map (fun (tmin, tmax,_) -> Range1d(tmin, tmax))
+                    for i in 0 .. ranges.Length - 1 do
+                        for j in i+1 .. ranges.Length - 1 do
+                            let disjoint = ranges.[i].Max <= ranges.[j].Min || ranges.[i].Min >= ranges.[j].Max
+                            if not disjoint then o <- true
+
+                    o
+                if overlap then
+                    printfn "OVERLAPPING RANGES"
+                    subnodes |> Seq.collect (fun (tmin, tmax, n) -> traverse ray tmin tmax n) |> Seq.sortBy fst
+                else
+                    subnodes |> Seq.collect (fun (tmin, tmax, n) -> traverse ray tmin tmax n)
+
+        match tree.Root with
+        | Empty -> Seq.empty
+        | Leaf(_,b,_,_) | Node(_,b,_,_) ->
+            let mutable t0 = tmin
+            let mutable t1 = tmax
+            if intersect(ray, b, &t0, &t1) && t1 >= tmin && t0 <= tmax then
+                traverse ray (max tmin t0) (min tmax t1) tree.Root
+            else
+                Seq.empty
+
+
+    let overlapping (box : Box3d) (tree : Octree<'a>) =
+        let rec traverse (box : Box3d) (node : OctNode<'a>) =
+            match node with
+            | Empty -> 
+                Seq.empty
+            | Leaf(_,_,_,es) ->
+                es |> Seq.filter (fun e ->
+                    tree.GetBoundingBox(e).Intersects(box)
+                )
+            | Node(_,_,_,cs) ->
+                cs |> Seq.collect (fun c ->
+                    match c with
+                    | Empty -> Seq.empty
+                    | Leaf(_,b,_,_) | Node(_,b,_,_) ->
+                        if b.Intersects box then
+                            traverse box c
+                        else
+                            Seq.empty
+                )
+
+        traverse box tree.Root
 
 
