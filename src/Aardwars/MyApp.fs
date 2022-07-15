@@ -11,6 +11,8 @@ open System.Reflection
 open Aardwars
 open Aardvark.Rendering.Text
 
+open Aardwars.Gun
+
 
 type CameraMessage =
     | Look of delta : V2d
@@ -135,12 +137,6 @@ module Game =
    //}
        
         
-             
-             
-             
-        
-
-
     let intitial (env : Environment<Message>) = 
     
         let blockTable = Block.loadMapping @"C:\Users\Schorsch\Desktop\mc"
@@ -293,9 +289,9 @@ module Game =
             
         let initialTargets = 
             HashMap.ofList [
-                for i = 0 to 10 - 1 do
+                for i = 0 to 20 - 1 do
                     let randomHealth = random.Next(10,200)
-                    let randomRadius = random.Next(0,10)
+                    let randomRadius = random.Next(3,10)
                     let randomPosition = V3d(random.Next(-50,50),random.Next(-50,50),random.Next(3,20))
                     let name = sprintf "target_%i" i
                     name,{currentHp = randomHealth; maxHp = randomHealth; pos = randomPosition ;radius = randomRadius }   
@@ -309,8 +305,15 @@ module Game =
             proj = Frustum.perspective 90.0 0.1 1000.0 1.0
             time = 0.0
             targets = initialTargets
-            moveSpeed = 25.5
-            airAccel = 0.0012
+            moveSpeed = 8.0
+            airAccel = 0.000012
+            lastHit = None
+            weapons = HashMap.ofArray[|
+                    Primary,Weapon.laserGun
+                    Secondary,Weapon.shotGun
+                |]
+            activeWeapon = Primary
+            shotTrails = HashSet.empty
         }
 
     let update (env : Environment<Message>) (model : Model) (message : Message) =
@@ -360,35 +363,41 @@ module Game =
         | KeyUp Keys.D -> model |> cam (CameraMessage.StopMove (V3d(model.moveSpeed, 0.0, 0.0)))
         | KeyDown Keys.Space -> model |> cam (CameraMessage.StartMove (V3d(0.0, 0.0, 10.0)))
         | KeyUp Keys.Space -> model |> cam (CameraMessage.StopMove (V3d(0.0, 0.0, 10.0)))
-        
+        | KeyDown Keys.D1 -> { model with activeWeapon = Primary}
+        | KeyDown Keys.D2 -> { model with activeWeapon = Secondary}
+        | KeyDown Keys.Back -> 
+            let respawnLocation = model.world.Bounds.Center.XYZ + V3d.OOI*10.0
+            let newCameraView = model.camera.camera.WithLocation(respawnLocation)
+            let modelCamera = { model.camera with camera = newCameraView  }
+            { model with camera = modelCamera }
         | KeyDown Keys.O -> 
             let n = model.moveSpeed + 0.1
             printfn "moveSpeed %.2f" n
             { model with moveSpeed = n }
-
         | KeyDown Keys.P -> 
             let n = model.moveSpeed - 0.1
             printfn "moveSpeed %.2f" n
             { model with moveSpeed = n }
-
         | KeyDown Keys.U -> 
             let n = model.airAccel + 0.00005
             printfn "airAccel %f" n
             { model with airAccel = n }
-
         | KeyDown Keys.I -> 
             let n = model.airAccel - 0.00005
             printfn "airAccel %f" n
             { model with airAccel = n }
-
         | Resize s -> 
             { model with 
                 size = s
                 proj = Frustum.perspective 90.0 0.1 1000.0 (float s.X / float s.Y) 
             }
-
         | UpdateTime(t, dt) ->
             let model = model |> cam (CameraMessage.UpdateTime(t, dt))
+            let newTrailSet = 
+                model.shotTrails
+                |> HashSet.filter (fun trail -> trail.duration + trail.startTime > t)
+            let model = { model with shotTrails = newTrailSet}
+
             if model.onFloor then
                 { model with
                     time = t
@@ -412,6 +421,18 @@ module Game =
                 let p = model.camera.camera.Location
                 let d = model.camera.camera.Forward
                 Ray3d(p, d)
+            let shotTrail = 
+                let p0 = shotRay.Origin
+                let range = (model.weapons.Item model.activeWeapon).range
+                let p1 = shotRay.Origin + range * shotRay.Direction
+                let line = Line3d(p0, p1)
+                {
+                    Line = line
+                    startTime = model.time
+                    duration = 1.0
+                }
+            let newTrailset = HashSet.add shotTrail model.shotTrails
+            
             
             let hittedTarget =
                 model.targets 
@@ -438,49 +459,88 @@ module Game =
                 |> List.tryHead
                 |> Option.map fst
 
-            let updatedTargets : HashMap<string, Target> =
+            let updatedTargets, updatedLastHit : HashMap<string, Target> * Option<LastHitInfo> =
                 match hittedTarget with
-                | None -> model.targets
+                | None -> model.targets, None
                 | Some hit -> 
-                    model.targets
-                    |> HashMap.alter hit (fun altV -> 
-                        
-                        
-                        match altV with
-                        |None -> None
-                        |Some target -> 
-                            let newHp = target.currentHp - 10
-                            match newHp > 0 with
-                            | true -> Some {target with currentHp = newHp}
-                            | false -> None
-
-                        
                     
-                    )
+                    let mutable currentHit : Option<LastHitInfo> = None
+                    
+                    let updTarg = 
+                        model.targets
+                        |> HashMap.alter hit (fun altV -> 
+                            match altV with
+                                | None -> 
+                                    currentHit <- None
+                                    None
+                                | Some target -> 
+                                    let damageMultiplier =
+                                        match model.lastHit with
+                                        | Some lh -> if lh.name = hit then lh.hitSeries + 1 else 1
+                                        | None -> 1
+                                    let newHp = target.currentHp - 10 * damageMultiplier
+                                    match newHp > 0 with
+                                    | true -> 
+                                        let newHitInfo: LastHitInfo = 
+                                            match model.lastHit with
+                                            | Some lh when lh.name = hit -> 
+                                                { lh with 
+                                                    hitSeries = lh.hitSeries + 1
+                                                }
+                                            | _ ->
+                                                {
+                                                    name        = hit
+                                                    hitSeries   = 1
+                                                }
+                                        currentHit <- Some newHitInfo
+                                        Some {target with currentHp = newHp}
+                                    | false -> 
+                                        currentHit <- None
+                                        None
+                        )
 
+                    updTarg, currentHit
 
-                //|> HashMap.map (fun name t -> 
-                  //  {t with currentHp = t.currentHp - 10}
-                //)
-            
-            //let newTargets =
-            //    HashMap.union model.targets hittedTarget
-            //    |> HashMap.filter (fun n t -> 
-            //        t.currentHp > 0
-            //    )
-            //
-            {model with targets = updatedTargets}
+            let updateWeapon weapon = 
+                let updatedAmmo =
+                    match weapon.ammo with
+                    | Endless -> Endless
+                    | Limited ammoInfo -> Limited {ammoInfo with availableShots = ammoInfo.availableShots - 1}
+                {weapon with ammo = updatedAmmo}
+
+            let updatedWeapon = model.weapons.Item model.activeWeapon |> updateWeapon
+            let updatedWeapons = model.weapons |> HashMap.add model.activeWeapon updatedWeapon
+
+            { model with
+                targets = updatedTargets
+                lastHit = updatedLastHit
+                weapons = updatedWeapons
+                shotTrails = newTrailset
+            }
 
     let view (env : Environment<Message>) (model : AdaptiveModel) =
         events env
         let worldSg =
             model.world.Scene env.Window
 
-        let gunSg = Gun.scene env.Window
+        let gunSg = Weapon.scene env.Window model.activeWeapon
         let textSg = 
             Text.statusTextSg env.Window (model.camera.velocity |> AVal.map (fun v -> sprintf "%.2f" v.Length)) (AVal.constant true)
 
-
+        let trailsSg = 
+            let lines = 
+                model.shotTrails 
+                |> ASet.map (fun t -> t.Line)
+                |> ASet.toAVal 
+                |> AVal.map HashSet.toArray
+            let color = C4b.Beige |> AVal.constant
+            Sg.lines color lines
+            |> Sg.shader{
+                do! DefaultSurfaces.trafo
+                do! DefaultSurfaces.thickLine
+                do! DefaultSurfaces.vertexColor
+            }
+            |> Sg.uniform' "LineWidth" (3.0)
         let targetsSg =
             model.targets 
             |> AMap.toASet 
@@ -490,7 +550,7 @@ module Game =
                
             ) |> Sg.set
             
-        Sg.ofList [worldSg; gunSg; textSg; targetsSg]
+        Sg.ofList [worldSg; gunSg; textSg; targetsSg; trailsSg]
             |> Sg.viewTrafo (model.camera.camera |> AVal.map CameraView.viewTrafo)
             |> Sg.projTrafo (model.proj |> AVal.map Frustum.projTrafo)
 

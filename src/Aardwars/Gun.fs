@@ -1,4 +1,4 @@
-﻿namespace Aardwars
+﻿namespace Aardwars.Gun
 
 open FSharp.Data.Adaptive
 open Aardvark.Base
@@ -12,41 +12,112 @@ open System.Reflection
 open System.Text
 open System.Text.RegularExpressions
 open FShade
-module Gun =
-    let scene (win : IRenderWindow) =
+open Aardwars
+
+type AmmoInfo = 
+    {
+        reloadTime : float
+        maxShots : int
+        availableShots : int
+    }
+
+type AmmonitionType = 
+    | Endless
+    | Limited of AmmoInfo
+
+type WeaponType =
+    | Primary
+    | Secondary
+
+type Weapon =
+    {
+        damage      : Range1d
+        name        : string
+        cooldown    : float
+        ammo        : AmmonitionType
+        range       : float
+        spray       : float
+    }
+
+module Weapon =
+
+    let laserGun =
+        {
+            damage      = Range1d(10,20)
+            name        = "Lasergun"
+            cooldown    = 0.5
+            ammo        = AmmonitionType.Endless
+            range       = 1000.0
+            spray       = 0.0
+        }
+
+    let shotGun =
+        {
+            damage      = Range1d(70,100)
+            name        = "Shotgun"
+            cooldown    = 1.5
+            ammo        = Limited {
+                                    reloadTime      = 5.0
+                                    maxShots        = 2
+                                    availableShots  = 2
+                                  }
+            range       = 10.0
+            spray       = 10.0
+        }
+
+    let scene (win : IRenderWindow) (activeWeapon : aval<WeaponType>) =
+        
         let sigg =   
             win.Runtime.CreateFramebufferSignature([
                 DefaultSemantic.Colors, TextureFormat.Rgba8; 
                 DefaultSemantic.DepthStencil, TextureFormat.Depth24Stencil8
                 ]
-            )    
+            )
+            
         let gunProjection =
-            (win.Sizes |> AVal.map (fun s -> Frustum.perspective 110.0 0.0001 20.0 (float s.X / float s.Y) |> Frustum.projTrafo))
-        let task = 
-            Import.importGun()
-                |> Sg.transform 
-                    (
-                        Trafo3d.Scale(1.0,1.0,-1.0) *
-                        Trafo3d.Scale(0.5) *
-                        Trafo3d.Translation(1.0,-1.0,-1.0)
+            win.Sizes 
+            |> AVal.map (fun s -> 
+                let aspect = float s.X / float s.Y
+                Frustum.perspective 110.0 0.0001 20.0 aspect
+                |> Frustum.projTrafo
+            )
+            
+        let lg =
+            Import.importGun("gun") 
+            |> Sg.transform (
+                    Trafo3d.Scale(1.0,1.0,-1.0) *
+                    Trafo3d.Scale(0.25) *
+                    Trafo3d.Translation(1.0,-1.0,-1.0))
+        let sg = 
+            Import.importGun("shotgun") 
+            |> Sg.transform (
+                    Trafo3d.Scale(1.0,1.0,-1.0) *
+                    Trafo3d.Scale(0.18) *
+                    Trafo3d.Translation(1.5,-1.0,-1.8))
+        let task =  
+            activeWeapon
+            |> AVal.map (function 
+                | Primary -> lg
+                | Secondary -> sg
+            )
+            |> Sg.dynamic
+            |> Sg.shader {
+                do! DefaultSurfaces.trafo
+                do! DefaultSurfaces.diffuseTexture
+                do! 
+                    (fun (v : Effects.Vertex) -> 
+                        fragment {
+                            return V4d(v.c.X ** 0.5, v.c.Y ** 0.5, v.c.Z ** 0.5, 1.0)
+                        }
                     )
-                |> Sg.shader {
-                    do! DefaultSurfaces.trafo
-                    do! DefaultSurfaces.diffuseTexture
-                    do! 
-                        (fun (v : Effects.Vertex) -> 
-                            fragment {
-                                return V4d(v.c.X ** 0.5, v.c.Y ** 0.5, v.c.Z ** 0.5, 1.0)
-                            }
-                        )
-                    do! DefaultSurfaces.simpleLighting
-                }
-                |> Sg.viewTrafo (AVal.constant Trafo3d.Identity)
-                |> Sg.projTrafo gunProjection
-                //|> Sg.depthTest' DepthTest.None
-                |> Sg.cullMode' CullMode.None
-                |> Sg.fillMode' FillMode.Fill
-                |> Sg.compile win.Runtime sigg
+                do! DefaultSurfaces.simpleLighting
+            }
+            |> Sg.viewTrafo (AVal.constant Trafo3d.Identity)
+            |> Sg.projTrafo gunProjection
+            //|> Sg.depthTest' DepthTest.None
+            |> Sg.cullMode' CullMode.None
+            |> Sg.fillMode' FillMode.Fill
+            |> Sg.compile win.Runtime sigg
                 
         let c : ClearValues =
             clear {

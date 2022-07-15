@@ -7,6 +7,8 @@ open Aardvark.Rendering
 open Aardvark.SceneGraph
 open Microsoft.FSharp.NativeInterop
 
+#nowarn "9"
+
 type V3s =
     struct
         val mutable public X : int16

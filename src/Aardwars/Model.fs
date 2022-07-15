@@ -9,6 +9,8 @@ open Aardvark.Base
 open Aardwars
 open Aardvark.Rendering.Text
 
+open Aardwars.Gun
+
 type World =
     {
         Bounds : Box3d
@@ -597,8 +599,19 @@ module Target =
             }
         Sg.ofList [textSg; sphereSg]
         
-    
 
+type LastHitInfo = 
+    {
+        name        : string
+        hitSeries   : int
+    }
+
+type TrailInfo = 
+    {
+        Line        :  Line3d
+        startTime   :  float
+        duration    :  float
+    }
 
 [<ModelType>]
 type Model =
@@ -613,6 +626,11 @@ type Model =
         proj        : Frustum
         moveSpeed   : float
         airAccel    : float
+        lastHit     : Option<LastHitInfo>
+        weapons     : HashMap<WeaponType,Weapon>
+        activeWeapon: WeaponType
+        shotTrails  : HashSet<TrailInfo>
+
     }
 
 

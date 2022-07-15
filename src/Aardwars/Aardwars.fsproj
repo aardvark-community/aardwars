@@ -6,6 +6,24 @@
     <OutputPath>..\..\bin\$(Configuration)\</OutputPath>
   </PropertyGroup>
   <ItemGroup>
+	  <EmbeddedResource Include="assets\player.png">
+	    <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="assets\Shotgun.png">
+	    <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="assets\player.mtl">
+	    <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="assets\player.obj">
+	    <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="assets\shotgun.mtl">
+	    <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="assets\shotgun.obj">
+	    <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+	  </EmbeddedResource>
 	  <EmbeddedResource Include="assets\gun.png">
 		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
 	  </EmbeddedResource>
@@ -34,10 +52,13 @@
 	  <Compile Include="Text.fs" />
 	  <Compile Include="CollisionDetection.fs" />
 	  <Compile Include="BoxWorld.fs" />
+	  <Compile Include="MinecraftWorld.fs" />
 	  <Compile Include="Model.fs" />
 	  <Compile Include="MyApp.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
+  <ItemGroup />
+  <ItemGroup />
   <ItemGroup>
     <ProjectReference Include="..\Minecraft.Parser\Minecraft.Parser.fsproj" />
   </ItemGroup>
