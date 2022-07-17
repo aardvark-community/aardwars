@@ -53,18 +53,23 @@
     <EmbeddedResource Include="CubeMap\miramar_rt.png" />
     <EmbeddedResource Include="CubeMap\miramar_up.png" />
     <Compile Include="Util.fs" />
-	  <Compile Include="RandomBoxes.fs" />
+    <Compile Include="Importer.fs" />
 	  <Compile Include="Gun.fs" />
 	  <Compile Include="Text.fs" />
 	  <Compile Include="CollisionDetection.fs" />
-	  <Compile Include="BoxWorld.fs" />
+	  <Compile Include="Shaders.fs" />
+	  <Compile Include="LodRenderer.fs" />
+	  <Compile Include="RandomBoxWorld.fs" />
 	  <Compile Include="MinecraftWorld.fs" />
+	  <Compile Include="World.fs" />
 	  <Compile Include="Model.fs" />
-	  <Compile Include="MyApp.fs" />
+	  <Compile Include="Camera.fs" />
+	  <Compile Include="Skybox.fs" />
+	  <Compile Include="TrailsSg.fs" />
+	  <Compile Include="Update.fs" />
+	  <Compile Include="InitialModel.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
-  <ItemGroup />
-  <ItemGroup />
   <ItemGroup>
     <ProjectReference Include="..\Minecraft.Parser\Minecraft.Parser.fsproj" />
   </ItemGroup>

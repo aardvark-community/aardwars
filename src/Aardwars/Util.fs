@@ -99,7 +99,9 @@ module App =
         window.Run()
         env.Shutdown()
 
-
+module Passes =
+    let pass1 = (RenderPass.after "§iasfj" RenderPassOrder.Arbitrary RenderPass.main)
+    let pass2 = (RenderPass.after "i55zmj5" RenderPassOrder.Arbitrary pass1)
                 
 
 

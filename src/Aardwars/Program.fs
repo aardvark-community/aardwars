@@ -21,7 +21,7 @@ let main (_args : string[]) =
 
 
     do 
-        let app = Elm.App.create Elm.Game.intitial Elm.Game.update Elm.Game.view
+        let app = Elm.App.create Elm.Game.intitial Update.update Elm.Game.view
         Elm.App.run win app
         exit 0
     0

@@ -135,7 +135,7 @@ module Weapon =
             }
             |> Sg.blendMode' BlendMode.Blend
             |> Sg.depthTest' DepthTest.None
-            |> Sg.pass (RenderPass.after "§iasfj" RenderPassOrder.Arbitrary RenderPass.main)
+            |> Sg.pass Elm.Passes.pass1
 
         let crosshairSg =
             let shape =

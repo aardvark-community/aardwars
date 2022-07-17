@@ -440,8 +440,6 @@ module Octree =
                             subBoxes.[oct].Add box
                             subBounds.[oct].ExtendBy box
                             
-
-
                         let childCells = cell.Children
                         let children =
                             Array.init 8 (fun i ->
@@ -553,8 +551,6 @@ module Octree =
     let rayIntersections (ray : Ray3d) (tmin : float) (tmax : float) (tree : Octree<'a>) =
         let ray = FastRay3d ray
         let cmp = System.Func<_,_,_>(fun (t0, _) (t1,_) -> compare t0 t1)
-
-
 
         let rec traverse (ray : FastRay3d) (tmin : float) (tmax : float) (node : OctNode<'a>) =
             match node with
