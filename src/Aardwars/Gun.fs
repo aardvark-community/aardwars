@@ -13,6 +13,7 @@ open System.Text
 open System.Text.RegularExpressions
 open FShade
 
+
 type AmmoInfo = 
     {
         reloadTime : float
@@ -293,7 +294,18 @@ module Weapon =
         //    spray       = 10.0
         //}
 
-    let scene (win : IRenderWindow) (activeWeapon : aval<WeaponType>) =
+    let scene 
+        (emitGunT : V3d -> V3d -> unit)
+        (win : IRenderWindow) 
+        (activeWeapon : aval<WeaponType>) 
+        (moveVec : aval<V3d>) 
+        (ri : aval<V3d>)
+        (up : aval<V3d>)
+        (dt : aval<float>)
+        (gunT : aval<V3d>)
+        (gunA : aval<V3d>)
+        (gunLastRi : aval<V3d>)
+        (gunLastUp : aval<V3d>) =
         
         let sigg =   
             win.Runtime.CreateFramebufferSignature([
@@ -309,19 +321,63 @@ module Weapon =
                 Frustum.perspective 110.0 0.0001 20.0 aspect
                 |> Frustum.projTrafo
             )
+        let gunMotionTrafo =
+            let lerpFactor = 20.999               
+            AVal.custom (fun tok -> 
+                let move = moveVec.GetValue tok
+                let dt = dt.GetValue tok
+                let ri = ri.GetValue tok
+                let up = up.GetValue tok
+                let da = (dt * lerpFactor)
+                let gunT = gunT.GetValue()
+                let gunA = gunA.GetValue()
+                let gunLastRi = gunLastRi.GetValue()
+                let gunLastUp = gunLastUp.GetValue()
+
+                let tx = 
+                    let t = (move.X / 5.0) |> clamp -1.0 1.0
+                    lerp gunT.X t da
+                let ty = 
+                    let t = (move.Y / 5.0) |> clamp -1.0 1.0
+                    lerp gunT.Y t da
+                    
+                let ax = 
+                    let a = gunLastRi
+                    let b = ri
+                    let n = Vec.cross a.Normalized b.Normalized
+                    let v = atan2 (Vec.dot (Vec.cross a b) n) (Vec.dot a b)
+                    lerp gunA.X v da
+                let ay = 
+                    let a = gunLastUp
+                    let b = up
+                    let n = Vec.cross a.Normalized b.Normalized
+                    let v = atan2 (Vec.dot (Vec.cross a b) n) (Vec.dot a b)
+                    lerp gunA.Y v da
+
+                emitGunT (V3d(tx,ty,gunT.Z)) (V3d(ax,ay,gunA.Z))
+                Trafo3d.RotationYInDegrees(90.0 * ax) * 
+                Trafo3d.RotationXInDegrees(90.0 * ay) *
+                Trafo3d.Translation(tx,0.0,ty)
+            )
             
-        let lg =
-            Import.importGun("gun") 
-            |> Sg.transform (
+        let modelTrafo = 
+            activeWeapon |> AVal.map (fun a -> 
+                match a with 
+                | Primary -> 
                     Trafo3d.Scale(1.0,1.0,-1.0) *
                     Trafo3d.Scale(0.25) *
-                    Trafo3d.Translation(1.0,-1.0,-1.0))
-        let sg = 
-            Import.importGun("shotgun") 
-            |> Sg.transform (
+                    Trafo3d.Translation(1.0,-1.0,-1.0)
+                | Secondary -> 
                     Trafo3d.Scale(1.0,1.0,-1.0) *
                     Trafo3d.Scale(0.18) *
-                    Trafo3d.Translation(1.5,-1.0,-1.8))
+                    Trafo3d.Translation(1.5,-1.0,-1.8)
+                    
+            )
+
+        let lg =
+            Import.importGun("gun") 
+        let sg = 
+            Import.importGun("shotgun") 
         let task =  
             activeWeapon
             |> AVal.map (function 
@@ -329,6 +385,8 @@ module Weapon =
                 | Secondary -> sg
             )
             |> Sg.dynamic
+            |> Sg.trafo gunMotionTrafo
+            |> Sg.trafo modelTrafo
             |> Sg.shader {
                 do! DefaultSurfaces.trafo
                 do! DefaultSurfaces.diffuseTexture
@@ -342,7 +400,6 @@ module Weapon =
             }
             |> Sg.viewTrafo (AVal.constant Trafo3d.Identity)
             |> Sg.projTrafo gunProjection
-            //|> Sg.depthTest' DepthTest.None
             |> Sg.cullMode' CullMode.None
             |> Sg.fillMode' FillMode.Fill
             |> Sg.compile win.Runtime sigg
@@ -363,7 +420,7 @@ module Weapon =
             }
             |> Sg.blendMode' BlendMode.Blend
             |> Sg.depthTest' DepthTest.None
-            |> Sg.pass Elm.Passes.pass1
+            |> Sg.pass Elm.Passes.pass2
 
         let crosshairSg =
             let shape =

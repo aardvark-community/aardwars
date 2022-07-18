@@ -61,8 +61,22 @@ module Target =
         Sg.ofList [textSg; sphereSg]
         
 
-
-
+        
+type AnimationState = 
+    { 
+        t : V3d 
+        a : V3d
+        lastRi : V3d
+        lastUp : V3d
+    }
+module AnimationState = 
+    let initial = 
+        { 
+            t = V3d.Zero 
+            a = V3d.Zero
+            lastRi = V3d.Zero
+            lastUp = V3d.Zero
+        } 
 
 [<ModelType>]
 type Model =
@@ -72,6 +86,7 @@ type Model =
         targets     : HashMap<string,Target>
         onFloor     : bool
         time        : float
+        lastDt      : float
         size        : V2i
         camera      : CameraModel
         proj        : Frustum
@@ -80,7 +95,8 @@ type Model =
         weapons     : HashMap<WeaponType,Weapon>
         activeWeapon: WeaponType
         shotTrails  : HashSet<TrailInfo>
-
+        gunAnimationState : AnimationState
+        
     }
 
 

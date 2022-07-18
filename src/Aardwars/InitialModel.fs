@@ -16,12 +16,12 @@ module Game =
 
     let intitial (env : Environment<Message>) = 
         
-        //let world = World.randomGenerated 5000 (V2i(150,150)) 1.75
-        let world = 
-            let textures = @"C:\minecraftzeug\textures"
-            let map = @"C:\minecraftzeug\Small Worlds"
-            let atlas, tree = MinecraftWorld.load env.Runtime textures map
-            World.minecraft env.Window atlas tree 1.75
+        let world = World.randomGenerated 5000 (V2i(150,150)) 1.75
+        //let world = 
+        //    let textures = @"C:\minecraftzeug\textures"
+        //    let map = @"C:\minecraftzeug\Small Worlds"
+        //    let atlas, tree = MinecraftWorld.load env.Runtime textures map
+        //    World.minecraft env.Window atlas tree 1.75
 
         let center = world.Bounds.Center.XYO + world.Bounds.Max.OOZ + V3d(0.1, 0.2, 0.4)
         
@@ -49,6 +49,7 @@ module Game =
             camera = { cam with camera = cam.camera.WithLocation(p1) }
             proj = Frustum.perspective 90.0 0.1 1000.0 1.0
             time = 0.0
+            lastDt = 0.1
             targets = initialTargets
             moveSpeed = 10.0
             airAccel = 0.0015
@@ -58,13 +59,27 @@ module Game =
                 |]
             activeWeapon = Primary
             shotTrails = HashSet.empty
+            gunAnimationState = AnimationState.initial
         }
 
     let view (env : Environment<Message>) (model : AdaptiveModel) =
         Update.events env
         let worldSg = model.world.Scene env.Window
 
-        let gunSg = Weapon.scene env.Window model.activeWeapon
+        let gunSg = 
+            Weapon.scene 
+                (fun t a -> env.Emit [UpdateAnimationState {model.gunAnimationState.GetValue() with t = t; a = a}]) 
+                env.Window 
+                model.activeWeapon 
+                model.camera.move 
+                (model.camera.camera |> AVal.map (fun cv -> cv.Right))
+                (model.camera.camera |> AVal.map (fun cv -> cv.Up))
+                model.lastDt
+                (model.gunAnimationState |> AVal.map (fun s -> s.t))
+                (model.gunAnimationState |> AVal.map (fun s -> s.a))
+                (model.gunAnimationState |> AVal.map (fun s -> s.lastRi))
+                (model.gunAnimationState |> AVal.map (fun s -> s.lastUp))
+
         let textSg = 
             Text.statusTextSg 
                 env.Window 

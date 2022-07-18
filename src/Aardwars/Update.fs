@@ -18,6 +18,7 @@ type Message =
     | KeyUp of key : Keys
     | Resize of newSize : V2i
     | UpdateTime of seconds : float * delta : float
+    | UpdateAnimationState of AnimationState
     | Shoot
 
 module Update =
@@ -144,21 +145,32 @@ module Update =
                 |> HashSet.filter (fun trail -> trail.duration + trail.startTime > t)
             let model = { model with shotTrails = newTrailSet}
 
+            let model = 
+                {model with 
+                    gunAnimationState = 
+                    {model.gunAnimationState with
+                        lastRi = model.camera.camera.Right
+                        lastUp = model.camera.camera.Up
+                    }
+                }
+
             if model.onFloor then
                 { model with
                     time = t
+                    lastDt = dt
                 }
             else
                 let cam = model.camera
                 { model with
                     time = t
+                    lastDt = dt
                     camera = 
                         { cam with 
                             velocity = cam.velocity - V3d(0.0, 0.0, 20.81) * dt
                             move = cam.move.XYO
                         }
                 }
-
+        | UpdateAnimationState s -> {model with gunAnimationState=s}
         | KeyDown _ 
         | KeyUp _ 
         | MouseUp _ -> 
