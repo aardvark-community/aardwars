@@ -19,8 +19,8 @@ module Game =
         
         let world = World.randomGenerated 5000 (V2i(150,150)) 1.75
         //let world = 
-        //    let textures = @"C:\temp\aardwars\assets\textures"
-        //    let map = @"C:\temp\aardwars\Notre Dame and Medieval City"
+        //    let textures = @"C:\Users\kuzaj\Desktop\blockstextures\textures"
+        //    let map = @"C:\Users\kuzaj\Desktop\Small Worlds"
         //    let atlas, tree = MinecraftWorld.load env.Runtime textures map
         //    World.minecraft env.Window atlas tree 1.75
 

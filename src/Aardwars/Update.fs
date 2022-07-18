@@ -168,7 +168,7 @@ module Update =
                 let d = model.camera.camera.Forward
                 Ray3d(p, d)
             let shotTrail = 
-                let p0 = shotRay.Origin
+                let p0 = shotRay.Origin + model.camera.camera.Right * 0.7 + model.camera.camera.Down * 0.4
                 let range = (model.weapons.Item model.activeWeapon).range
                 let p1 = shotRay.Origin + range * shotRay.Direction
                 let line = Line3d(p0, p1)
