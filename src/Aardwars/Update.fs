@@ -149,8 +149,7 @@ module Update =
                 {model with 
                     gunAnimationState = 
                     {model.gunAnimationState with
-                        lastRi = model.camera.camera.Right
-                        lastUp = model.camera.camera.Up
+                        lastFw = model.camera.camera.Forward
                     }
                 }
 

@@ -303,13 +303,11 @@ module Weapon =
         (win : IRenderWindow) 
         (activeWeapon : aval<WeaponType>) 
         (moveVec : aval<V3d>) 
-        (ri : aval<V3d>)
-        (up : aval<V3d>)
+        (fw : aval<V3d>)
         (dt : aval<float>)
         (gunT : aval<V3d>)
         (gunA : aval<V3d>)
-        (gunLastRi : aval<V3d>)
-        (gunLastUp : aval<V3d>) =
+        (gunLastFw : aval<V3d>) =
         
         let sigg =   
             win.Runtime.CreateFramebufferSignature([
@@ -330,13 +328,11 @@ module Weapon =
             AVal.custom (fun tok -> 
                 let move = moveVec.GetValue tok
                 let dt = dt.GetValue tok
-                let ri = ri.GetValue tok
-                let up = up.GetValue tok
+                let fw = fw.GetValue tok
                 let da = (dt * lerpFactor)
                 let gunT = gunT.GetValue()
                 let gunA = gunA.GetValue()
-                let gunLastRi = gunLastRi.GetValue()
-                let gunLastUp = gunLastUp.GetValue()
+                let gunLastFw = gunLastFw.GetValue()
 
                 let tx = 
                     let t = (move.X / 5.0) |> clamp -1.0 1.0
@@ -346,21 +342,15 @@ module Weapon =
                     lerp gunT.Y t da
                     
                 let ax = 
-                    let a = gunLastRi
-                    let b = ri
-                    let n = Vec.cross a.Normalized b.Normalized
-                    let v = atan2 (Vec.dot (Vec.cross a b) n) (Vec.dot a b)
-                    lerp gunA.X v da
+                    let v = clamp -1.0 1.0 (gunLastFw.X - fw.X)
+                    lerp gunA.X v 0.08
                 let ay = 
-                    let a = gunLastUp
-                    let b = up
-                    let n = Vec.cross a.Normalized b.Normalized
-                    let v = atan2 (Vec.dot (Vec.cross a b) n) (Vec.dot a b)
-                    lerp gunA.Y v da
+                    let v = clamp -1.0 1.0 (gunLastFw.Y - fw.Y)
+                    lerp gunA.Y v 0.08
 
                 emitGunT (V3d(tx,ty,gunT.Z)) (V3d(ax,ay,gunA.Z))
-                Trafo3d.RotationYInDegrees(90.0 * ax) * 
-                Trafo3d.RotationXInDegrees(90.0 * ay) *
+                Trafo3d.RotationZInDegrees(45.0 * ax) * 
+                //Trafo3d.RotationXInDegrees(45.0 * ay) *
                 Trafo3d.Translation(tx,0.0,ty)
             )
             

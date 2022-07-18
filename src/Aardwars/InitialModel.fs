@@ -73,13 +73,11 @@ module Game =
                 env.Window 
                 model.activeWeapon 
                 model.camera.move 
-                (model.camera.camera |> AVal.map (fun cv -> cv.Right))
-                (model.camera.camera |> AVal.map (fun cv -> cv.Up))
+                (model.camera.camera |> AVal.map (fun cv -> cv.Forward))
                 model.lastDt
                 (model.gunAnimationState |> AVal.map (fun s -> s.t))
                 (model.gunAnimationState |> AVal.map (fun s -> s.a))
-                (model.gunAnimationState |> AVal.map (fun s -> s.lastRi))
-                (model.gunAnimationState |> AVal.map (fun s -> s.lastUp))
+                (model.gunAnimationState |> AVal.map (fun s -> s.lastFw))
 
 
         let textSg = 

@@ -66,16 +66,14 @@ type AnimationState =
     { 
         t : V3d 
         a : V3d
-        lastRi : V3d
-        lastUp : V3d
+        lastFw : V3d
     }
 module AnimationState = 
     let initial = 
         { 
             t = V3d.Zero 
             a = V3d.Zero
-            lastRi = V3d.Zero
-            lastUp = V3d.Zero
+            lastFw = V3d.Zero
         } 
 
 [<ModelType>]
