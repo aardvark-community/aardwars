@@ -111,6 +111,7 @@ module Update =
         | KeyUp Keys.Space -> model |> cam (CameraMessage.StopMove (V3d(0.0, 0.0, 10.0)))
         | KeyDown Keys.D1 -> { model with activeWeapon = Primary}
         | KeyDown Keys.D2 -> { model with activeWeapon = Secondary}
+        //| KeyDown Keys.R -> 
         | KeyDown Keys.Back -> 
             let respawnLocation = model.world.Bounds.Center.XYZ + V3d.OOI*10.0
             let newCameraView = model.camera.camera.WithLocation(respawnLocation)
@@ -162,107 +163,123 @@ module Update =
         | KeyUp _ 
         | MouseUp _ -> 
             model
-        | MouseDown _ -> 
-            let shotRay =
-                let p = model.camera.camera.Location
-                let d = model.camera.camera.Forward
-                Ray3d(p, d)
-            let shotTrail = 
-                let p0 = shotRay.Origin + model.camera.camera.Right * 0.7 + model.camera.camera.Down * 0.4
-                let range = (model.weapons.Item model.activeWeapon).range
-                let p1 = shotRay.Origin + range * shotRay.Direction
-                let line = Line3d(p0, p1)
-                {
-                    Line = line
-                    startTime = model.time
-                    duration = 1.0
-                }
-            let newTrailset = HashSet.add shotTrail model.shotTrails
-            
-            
-            let hittedTarget =
-                model.targets 
-                |> HashMap.choose (fun name t -> 
-                    let s = Sphere3d(t.pos, t.radius)
-                    //let r = t.radius
-                    //let d = model.camera.camera.Forward
-                    //let x = (model.camera.camera.Location - t.pos)
-                    //let b = 2.0*d*x
-                    //let c = -r*r+x*x
-                    //let rs = (-b + sqrt (b*b-4.0*c))/2.0
-                    let d0 = t.pos - model.camera.camera.Location
-                    let d1 = model.camera.camera.Forward
-                    let inFront = (Vec.dot d0.Normalized d1.Normalized) > 0.0
-                    let mutable tout = 0.0
-                    let isHit = shotRay.HitsSphere(t.pos,t.radius,&tout)
-                    match isHit && inFront with
-                    |true -> Some tout
-                    |false -> None
-                ) 
-                |> HashMap.toList
-                |> List.sortBy snd
-                |> List.tryHead
-                |> Option.map fst
+        | MouseDown _ ->
+        
 
-            let updatedTargets, updatedLastHit : HashMap<string, Target> * Option<LastHitInfo> =
-                match hittedTarget with
-                | None -> model.targets, None
-                | Some hit -> 
+            let activeWeapon = model.weapons.Item model.activeWeapon
+            
+            let canShoot =
+                match activeWeapon.ammo with
+                | Endless -> true
+                | Limited ammoInfo -> ammoInfo.availableShots > 0
+
+
+            match canShoot with
+            | false -> model
+            | true -> 
+                let shotRay =
+                    let p = model.camera.camera.Location
+                    let d = model.camera.camera.Forward
+                    Ray3d(p, d)
+                let shotTrail = 
+                    let p0 = shotRay.Origin + model.camera.camera.Right * 0.7 + model.camera.camera.Down * 0.4
+                    let range = (model.weapons.Item model.activeWeapon).range
+                    let p1 = shotRay.Origin + range * shotRay.Direction
+                    let line = Line3d(p0, p1)
+                    {
+                        Line = line
+                        startTime = model.time
+                        duration = 1.0
+                    }
+                let newTrailset = HashSet.add shotTrail model.shotTrails
+            
+            
+                let hittedTarget =
+                    model.targets 
+                    |> HashMap.choose (fun name t -> 
+                        let s = Sphere3d(t.pos, t.radius)
+                        //let r = t.radius
+                        //let d = model.camera.camera.Forward
+                        //let x = (model.camera.camera.Location - t.pos)
+                        //let b = 2.0*d*x
+                        //let c = -r*r+x*x
+                        //let rs = (-b + sqrt (b*b-4.0*c))/2.0
+                        let d0 = t.pos - model.camera.camera.Location
+                        let d1 = model.camera.camera.Forward
+                        let inFront = (Vec.dot d0.Normalized d1.Normalized) > 0.0
+                        let mutable tout = 0.0
+                        let isHit = shotRay.HitsSphere(t.pos,t.radius,&tout)
+                        match isHit && inFront with
+                        |true -> Some tout
+                        |false -> None
+                    ) 
+                    |> HashMap.toList
+                    |> List.sortBy snd
+                    |> List.tryHead
+                    |> Option.map fst
+
+                let updatedTargets, updatedLastHit : HashMap<string, Target> * Option<LastHitInfo> =
+                    match hittedTarget with
+                    | None -> model.targets, None
+                    | Some hit -> 
                     
-                    let mutable currentHit : Option<LastHitInfo> = None
+                        let mutable currentHit : Option<LastHitInfo> = None
                     
-                    let updTarg = 
-                        model.targets
-                        |> HashMap.alter hit (fun altV -> 
-                            match altV with
-                                | None -> 
-                                    currentHit <- None
-                                    None
-                                | Some target -> 
-                                    let damageMultiplier =
-                                        match model.lastHit with
-                                        | Some lh -> if lh.name = hit then lh.hitSeries + 1 else 1
-                                        | None -> 1
-                                    let newHp = target.currentHp - 10 * damageMultiplier
-                                    match newHp > 0 with
-                                    | true -> 
-                                        let newHitInfo: LastHitInfo = 
-                                            match model.lastHit with
-                                            | Some lh when lh.name = hit -> 
-                                                { lh with 
-                                                    hitSeries = lh.hitSeries + 1
-                                                }
-                                            | _ ->
-                                                {
-                                                    name        = hit
-                                                    hitSeries   = 1
-                                                }
-                                        currentHit <- Some newHitInfo
-                                        Some {target with currentHp = newHp}
-                                    | false -> 
+                        let updTarg = 
+                            model.targets
+                            |> HashMap.alter hit (fun altV -> 
+                                match altV with
+                                    | None -> 
                                         currentHit <- None
                                         None
-                        )
+                                    | Some target -> 
+                                        let damageMultiplier =
+                                            match model.lastHit with
+                                            | Some lh -> if lh.name = hit then lh.hitSeries + 1 else 1
+                                            | None -> 1
+                                        let newHp = target.currentHp - 10 * damageMultiplier
+                                        match newHp > 0 with
+                                        | true -> 
+                                            let newHitInfo: LastHitInfo = 
+                                                match model.lastHit with
+                                                | Some lh when lh.name = hit -> 
+                                                    { lh with 
+                                                        hitSeries = lh.hitSeries + 1
+                                                    }
+                                                | _ ->
+                                                    {
+                                                        name        = hit
+                                                        hitSeries   = 1
+                                                    }
+                                            currentHit <- Some newHitInfo
+                                            Some {target with currentHp = newHp}
+                                        | false -> 
+                                            currentHit <- None
+                                            None
+                            )
 
-                    updTarg, currentHit
+                        updTarg, currentHit
 
-            let updateWeapon weapon = 
-                let updatedAmmo =
-                    match weapon.ammo with
-                    | Endless -> Endless
-                    | Limited ammoInfo -> 
-                        
-                        
-                        
-                        Limited {ammoInfo with availableShots = ammoInfo.availableShots - 1}
-                {weapon with ammo = updatedAmmo}
+                let updateWeapon weapon = 
+                    let updatedAmmo =
+                        match weapon.ammo with
+                        | Endless -> Endless
+                        | Limited ammoInfo -> 
+                       
+                           let updatedAmmoInfo =
+                                match ammoInfo.availableShots > 0 with
+                                | true -> ammoInfo.availableShots - 1
+                                | false -> 0
+                       
+                           Limited {ammoInfo with availableShots = updatedAmmoInfo}
+                    {weapon with ammo = updatedAmmo}
 
-            let updatedWeapon = model.weapons.Item model.activeWeapon |> updateWeapon
-            let updatedWeapons = model.weapons |> HashMap.add model.activeWeapon updatedWeapon
+                let updatedWeapon = model.weapons.Item model.activeWeapon |> updateWeapon
+                let updatedWeapons = model.weapons |> HashMap.add model.activeWeapon updatedWeapon
 
-            { model with
-                targets = updatedTargets
-                lastHit = updatedLastHit
-                weapons = updatedWeapons
-                shotTrails = newTrailset
-            }
+                { model with
+                    targets = updatedTargets
+                    lastHit = updatedLastHit
+                    weapons = updatedWeapons
+                    shotTrails = newTrailset
+                }
