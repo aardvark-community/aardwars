@@ -100,8 +100,10 @@ module App =
         env.Shutdown()
 
 module Passes =
-    let pass1 = (RenderPass.after "§iasfj" RenderPassOrder.Arbitrary RenderPass.main)
-    let pass2 = (RenderPass.after "i55zmj5" RenderPassOrder.Arbitrary pass1)
+    let pass0 = (RenderPass.after "main" RenderPassOrder.Arbitrary RenderPass.main)
+    let pass1 = (RenderPass.after "shots" RenderPassOrder.Arbitrary pass0)
+    let pass2 = (RenderPass.after "weapon" RenderPassOrder.Arbitrary pass1)
+    let pass3 = (RenderPass.after "text" RenderPassOrder.Arbitrary pass2)
                 
 
 
