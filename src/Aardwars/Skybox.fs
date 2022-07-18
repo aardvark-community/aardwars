@@ -10,8 +10,6 @@ open System.Reflection
 open Aardwars
 open Aardvark.Rendering.Text
 
-open Aardwars.Gun
-
 
 
 module Skybox =
