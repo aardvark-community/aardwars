@@ -107,7 +107,7 @@ module Update =
         | KeyDown Keys.D -> model |> cam (CameraMessage.StartMove (V3d(model.moveSpeed, 0.0, 0.0)))
         | KeyUp Keys.D -> model |> cam (CameraMessage.StopMove (V3d(model.moveSpeed, 0.0, 0.0)))
         | KeyDown Keys.Space -> model |> cam (CameraMessage.StartMove (V3d(0.0, 0.0, 10.0)))
-        | KeyUp Keys.Space -> model |> cam (CameraMessage.StopMove (V3d(0.0, 0.0, 10.0)))
+        | KeyUp Keys.Space -> model
         | KeyDown Keys.D1 -> { model with activeWeapon = Primary}
         | KeyDown Keys.D2 -> { model with activeWeapon = Secondary}
         //| KeyDown Keys.R -> 
@@ -155,6 +155,7 @@ module Update =
                     camera = 
                         { cam with 
                             velocity = cam.velocity - V3d(0.0, 0.0, 20.81) * dt
+                            move = cam.move.XYO
                         }
                 }
 

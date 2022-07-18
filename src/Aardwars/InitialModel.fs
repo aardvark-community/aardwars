@@ -50,7 +50,7 @@ module Game =
             time = 0.0
             targets = initialTargets
             moveSpeed = 10.0
-            airAccel = 0.0001
+            airAccel = 0.0015
             weapons = HashMap.ofArray[|
                     Primary,Weapon.laserGun
                     Secondary,Weapon.shotGun
