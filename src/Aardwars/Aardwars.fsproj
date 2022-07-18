@@ -57,8 +57,8 @@
 	  <Compile Include="Gun.fs" />
 	  <Compile Include="Text.fs" />
 	  <Compile Include="CollisionDetection.fs" />
-	  <Compile Include="Shaders.fs" />
 	  <Compile Include="LodRenderer.fs" />
+	  <Compile Include="Shaders.fs" />
 	  <Compile Include="RandomBoxWorld.fs" />
 	  <Compile Include="MinecraftWorld.fs" />
 	  <Compile Include="World.fs" />

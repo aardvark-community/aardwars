@@ -250,7 +250,11 @@ module Update =
                 let updatedAmmo =
                     match weapon.ammo with
                     | Endless -> Endless
-                    | Limited ammoInfo -> Limited {ammoInfo with availableShots = ammoInfo.availableShots - 1}
+                    | Limited ammoInfo -> 
+                        
+                        
+                        
+                        Limited {ammoInfo with availableShots = ammoInfo.availableShots - 1}
                 {weapon with ammo = updatedAmmo}
 
             let updatedWeapon = model.weapons.Item model.activeWeapon |> updateWeapon
