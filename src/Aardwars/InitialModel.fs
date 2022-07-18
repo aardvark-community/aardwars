@@ -60,17 +60,41 @@ module Game =
         }
 
     let view (env : Environment<Message>) (model : AdaptiveModel) =
+        
         Update.events env
         let worldSg = model.world.Scene env.Window
 
         let gunSg = Weapon.scene env.Window model.activeWeapon
-        let textSg = 
-            Text.statusTextSg 
-                env.Window 
-                (model.camera.velocity |> AVal.map (fun v -> sprintf "%.2f" v.Length)) 
-                (AVal.constant true)
 
-        let trailsSg = Trails.sg model.shotTrails model.time
+        let textSg = 
+            let velocitySg = 
+                Text.velocityTextSg 
+                    env.Window 
+                    (model.camera.velocity |> AVal.map (fun v -> sprintf "%.2f" v.Length)) 
+                    (AVal.constant true)
+            
+            let statsSg = 
+
+                let weapon = 
+                    model.activeWeapon 
+                    |> AVal.bind (fun weaponType -> 
+                        model.weapons |> AMap.find weaponType
+                    )
+
+                let text = 
+                    weapon 
+                    |> AVal.map (fun w -> 
+                        match w.ammo with
+                        | Endless -> sprintf "Weapon: %s\tAmmo: Inf" w.name
+                        | Limited ammoInfo -> 
+                            sprintf "Weapon: %s\tAmmo: %i/%i" w.name ammoInfo.availableShots ammoInfo.maxShots
+                    )
+
+                Text.weaponTextSg env.Window text
+
+            [ velocitySg; statsSg ] |> Sg.ofList
+                
+        let trailsSg = Trails.sg model.shotTrails model.time |> Sg.pass Passes.pass1
             
         let targetsSg =
             model.targets 

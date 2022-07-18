@@ -268,9 +268,13 @@ module Weapon =
 
         {
             damage      = damage
-            name        = "Lasergun"
+            name        = "Shotgun"
             cooldown    = 0.5
-            ammo        = AmmunitionType.Endless
+            ammo        = Limited {
+                                    reloadTime      = 5.0
+                                    maxShots        = 2
+                                    availableShots  = 2
+                                  }
             range       = range
             spray       = 0.0
             canShoot    = canShoot
