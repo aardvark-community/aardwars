@@ -102,3 +102,19 @@ module Shader =
 
             return color
         }
+    [<GLSLIntrinsic("gl_FragDepth")>]
+    let depth() : float = onlyInShaderCode "depth"
+
+    let fogColor = C4d.DeepPink.ToV4d()
+    let foggy (v : Effects.Vertex) =
+        fragment {
+            // get world position
+            let p = v.wp.XYZ
+            
+            // Find the depth of the fragment
+            let d = Vec.distance p uniform.CameraLocation - 10.0
+
+            // apply
+            let f = exp (-d * 0.0625) |> clamp 0.0 1.0
+            return lerp fogColor v.c f
+        }

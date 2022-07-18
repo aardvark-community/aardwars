@@ -65,6 +65,7 @@ module Scene =
             |> Sg.shader {
                 do! DefaultSurfaces.trafo
                 do! DefaultSurfaces.diffuseTexture
+                do! Shader.foggy
                 //do! DefaultSurfaces.simpleLighting
             }
             |> Sg.instanced (AVal.constant trafos)
