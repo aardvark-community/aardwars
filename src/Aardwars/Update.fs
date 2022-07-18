@@ -10,8 +10,6 @@ open Elm
 open System.Reflection
 open Aardvark.Rendering.Text
 
-open Aardwars.Gun
-
 type Message =
     | MouseMove of delta : V2d
     | MouseDown of button : MouseButtons
@@ -20,6 +18,7 @@ type Message =
     | KeyUp of key : Keys
     | Resize of newSize : V2i
     | UpdateTime of seconds : float * delta : float
+    | Shoot
 
 module Update =
     
@@ -163,123 +162,38 @@ module Update =
         | KeyUp _ 
         | MouseUp _ -> 
             model
-        | MouseDown _ ->
-        
-
-            let activeWeapon = model.weapons.Item model.activeWeapon
+        | MouseDown button -> 
+            match button with
+                | MouseButtons.Left -> 
+                    let messages = [Shoot]
+                    env.Emit messages
+                    model
+                | MouseButtons.Right -> model
+                | _ -> model
             
-            let canShoot =
-                match activeWeapon.ammo with
-                | Endless -> true
-                | Limited ammoInfo -> ammoInfo.availableShots > 0
-
-
+        | Shoot -> 
+            let weapon = model.weapons.Item model.activeWeapon
+            
+            let canShoot = weapon.canShoot weapon.ammo
             match canShoot with
             | false -> model
             | true -> 
-                let shotRay =
-                    let p = model.camera.camera.Location
-                    let d = model.camera.camera.Forward
-                    Ray3d(p, d)
+                let shotRays = weapon.createHitrays model.camera.camera
                 let shotTrail = 
-                    let p0 = shotRay.Origin + model.camera.camera.Right * 0.7 + model.camera.camera.Down * 0.4
-                    let range = (model.weapons.Item model.activeWeapon).range
-                    let p1 = shotRay.Origin + range * shotRay.Direction
-                    let line = Line3d(p0, p1)
-                    {
-                        Line = line
-                        startTime = model.time
-                        duration = 1.0
-                    }
-                let newTrailset = HashSet.add shotTrail model.shotTrails
-            
-            
-                let hittedTarget =
-                    model.targets 
-                    |> HashMap.choose (fun name t -> 
-                        let s = Sphere3d(t.pos, t.radius)
-                        //let r = t.radius
-                        //let d = model.camera.camera.Forward
-                        //let x = (model.camera.camera.Location - t.pos)
-                        //let b = 2.0*d*x
-                        //let c = -r*r+x*x
-                        //let rs = (-b + sqrt (b*b-4.0*c))/2.0
-                        let d0 = t.pos - model.camera.camera.Location
-                        let d1 = model.camera.camera.Forward
-                        let inFront = (Vec.dot d0.Normalized d1.Normalized) > 0.0
-                        let mutable tout = 0.0
-                        let isHit = shotRay.HitsSphere(t.pos,t.radius,&tout)
-                        match isHit && inFront with
-                        |true -> Some tout
-                        |false -> None
-                    ) 
-                    |> HashMap.toList
-                    |> List.sortBy snd
-                    |> List.tryHead
-                    |> Option.map fst
+                    let newTrails = weapon.createShottrails shotRays model.camera.camera model.time
+                    HashSet.union (HashSet.ofList newTrails) model.shotTrails
+                let hittedTargets = weapon.findHitTargets shotRays model.targets model.camera.camera
+                let updatedTargets = 
+                    let damaged = weapon.processHits hittedTargets model.targets
+                    HashMap.union
+                        model.targets
+                        damaged
+                    |> HashMap.filter (fun _ t -> t.currentHp > 0)
 
-                let updatedTargets, updatedLastHit : HashMap<string, Target> * Option<LastHitInfo> =
-                    match hittedTarget with
-                    | None -> model.targets, None
-                    | Some hit -> 
-                    
-                        let mutable currentHit : Option<LastHitInfo> = None
-                    
-                        let updTarg = 
-                            model.targets
-                            |> HashMap.alter hit (fun altV -> 
-                                match altV with
-                                    | None -> 
-                                        currentHit <- None
-                                        None
-                                    | Some target -> 
-                                        let damageMultiplier =
-                                            match model.lastHit with
-                                            | Some lh -> if lh.name = hit then lh.hitSeries + 1 else 1
-                                            | None -> 1
-                                        let newHp = target.currentHp - 10 * damageMultiplier
-                                        match newHp > 0 with
-                                        | true -> 
-                                            let newHitInfo: LastHitInfo = 
-                                                match model.lastHit with
-                                                | Some lh when lh.name = hit -> 
-                                                    { lh with 
-                                                        hitSeries = lh.hitSeries + 1
-                                                    }
-                                                | _ ->
-                                                    {
-                                                        name        = hit
-                                                        hitSeries   = 1
-                                                    }
-                                            currentHit <- Some newHitInfo
-                                            Some {target with currentHp = newHp}
-                                        | false -> 
-                                            currentHit <- None
-                                            None
-                            )
-
-                        updTarg, currentHit
-
-                let updateWeapon weapon = 
-                    let updatedAmmo =
-                        match weapon.ammo with
-                        | Endless -> Endless
-                        | Limited ammoInfo -> 
-                       
-                           let updatedAmmoInfo =
-                                match ammoInfo.availableShots > 0 with
-                                | true -> ammoInfo.availableShots - 1
-                                | false -> 0
-                       
-                           Limited {ammoInfo with availableShots = updatedAmmoInfo}
-                    {weapon with ammo = updatedAmmo}
-
-                let updatedWeapon = model.weapons.Item model.activeWeapon |> updateWeapon
-                let updatedWeapons = model.weapons |> HashMap.add model.activeWeapon updatedWeapon
+                let updatedWeapon = {weapon with ammo = weapon.updateAmmo weapon.ammo}
 
                 { model with
                     targets = updatedTargets
-                    lastHit = updatedLastHit
-                    weapons = updatedWeapons
-                    shotTrails = newTrailset
+                    weapons = model.weapons |> HashMap.add model.activeWeapon updatedWeapon
+                    shotTrails = shotTrail
                 }

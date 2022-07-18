@@ -9,7 +9,6 @@ open Aardvark.Base
 open Aardwars
 open Aardvark.Rendering.Text
 
-open Aardwars.Gun
 
 
 [<ModelType>]
@@ -21,13 +20,7 @@ type CameraModel =
         camera      : CameraView
     }
 
-type Target =
-    {
-        currentHp : int
-        maxHp : int
-        pos : V3d
-        radius : float
-    }
+
 
 module Target =
     let GetTargetColor (currentHp : int) (maxHp : int) =
@@ -67,18 +60,9 @@ module Target =
             }
         Sg.ofList [textSg; sphereSg]
         
-type LastHitInfo = 
-    {
-        name        : string
-        hitSeries   : int
-    }
 
-type TrailInfo = 
-    {
-        Line        :  Line3d
-        startTime   :  float
-        duration    :  float
-    }
+
+
 
 [<ModelType>]
 type Model =
@@ -93,7 +77,6 @@ type Model =
         proj        : Frustum
         moveSpeed   : float
         airAccel    : float
-        lastHit     : Option<LastHitInfo>
         weapons     : HashMap<WeaponType,Weapon>
         activeWeapon: WeaponType
         shotTrails  : HashSet<TrailInfo>

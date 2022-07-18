@@ -11,8 +11,6 @@ open System.Reflection
 open Aardwars
 open Aardvark.Rendering.Text
 
-open Aardwars.Gun
-
 module Game =
 
     let intitial (env : Environment<Message>) = 
@@ -53,7 +51,6 @@ module Game =
             targets = initialTargets
             moveSpeed = 10.0
             airAccel = 0.0001
-            lastHit = None
             weapons = HashMap.ofArray[|
                     Primary,Weapon.laserGun
                     Secondary,Weapon.shotGun

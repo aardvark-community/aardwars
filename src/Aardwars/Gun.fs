@@ -1,4 +1,4 @@
-﻿namespace Aardwars.Gun
+﻿namespace Aardwars
 
 open FSharp.Data.Adaptive
 open Aardvark.Base
@@ -12,7 +12,6 @@ open System.Reflection
 open System.Text
 open System.Text.RegularExpressions
 open FShade
-open Aardwars
 
 type AmmoInfo = 
     {
@@ -21,7 +20,7 @@ type AmmoInfo =
         availableShots : int
     }
 
-type AmmonitionType = 
+type AmmunitionType = 
     | Endless
     | Limited of AmmoInfo
 
@@ -29,41 +28,156 @@ type WeaponType =
     | Primary
     | Secondary
 
+type TrailInfo = 
+    {
+        Line        :  Line3d
+        startTime   :  float
+        duration    :  float
+    }
+
+type Target =
+    {
+        currentHp : int
+        maxHp : int
+        pos : V3d
+        radius : float
+    }
+
+type LastHitInfo = 
+    {
+        name        : string
+        hitSeries   : int
+    }
+
 type Weapon =
     {
-        damage      : Range1d
-        name        : string
-        cooldown    : float
-        ammo        : AmmonitionType
-        range       : float
-        spray       : float
+        damage           : Range1d
+        name             : string
+        cooldown         : float
+        ammo             : AmmunitionType
+        range            : float
+        spray            : float
+        canShoot         : AmmunitionType -> bool
+        createHitrays    : CameraView -> list<Ray3d>
+        createShottrails : list<Ray3d> -> CameraView -> float -> list<TrailInfo>
+        findHitTargets   : list<Ray3d> -> HashMap<string, Target> ->  CameraView -> list<string>
+        processHits      : list<string> -> HashMap<string, Target> -> HashMap<string, Target>
+        updateAmmo       : AmmunitionType -> AmmunitionType
     }
 
 module Weapon =
-
+    let rand = RandomSystem()
     let laserGun =
+        let range = 1000.0
+        let damage = Range1d(10,20)
+        let canShoot (t : AmmunitionType) : bool = 
+            match t with
+                | Endless -> true
+                | Limited ammoInfo -> ammoInfo.availableShots > 0
+        let createHitrays (cv : CameraView) : list<Ray3d> = 
+            let p = cv.Location
+            let d = cv.Forward
+            [Ray3d(p, d)]
+        let createShottrails (rays : list<Ray3d>) (cv : CameraView) time =
+            rays |> List.map(fun shotRay ->
+                let p0 = shotRay.Origin + cv.Right * 0.7 + cv.Down * 0.4
+                
+                let p1 = shotRay.Origin + range * shotRay.Direction
+                let line = Line3d(p0, p1)
+                {
+                    Line = line
+                    startTime = time
+                    duration = 1.0
+                }
+            )
+        let findHitTargets (rays : list<Ray3d>)(targets : HashMap<string, Target>) (cv : CameraView) : list<string> =
+            rays |> List.choose(fun shotRay -> 
+                targets 
+                |> HashMap.choose (fun name t -> 
+                    let s = Sphere3d(t.pos, t.radius)
+                    //let r = t.radius
+                    //let d = model.camera.camera.Forward
+                    //let x = (model.camera.camera.Location - t.pos)
+                    //let b = 2.0*d*x
+                    //let c = -r*r+x*x
+                    //let rs = (-b + sqrt (b*b-4.0*c))/2.0
+                    let d0 = t.pos -  cv.Location
+                    let d1 = cv.Forward
+                    let inFront = (Vec.dot d0.Normalized d1.Normalized) > 0.0
+                    let mutable tout = 0.0
+                    let isHit = shotRay.HitsSphere(t.pos,t.radius,&tout)
+                    match isHit && inFront with
+                    |true -> Some tout
+                    |false -> None
+                ) 
+                |> HashMap.toList
+                |> List.sortBy snd
+                |> List.tryHead
+                |> Option.map fst
+            )
+
+        let processHits (names : list<string>) (targets : HashMap<string, Target>) : HashMap<string, Target> =
+            let processed = 
+                names 
+                |> List.groupBy id
+                |> List.map (fun (s,ss) -> 
+                    let hitCount = ss |> List.length
+                    targets
+                    |> HashMap.alter s (fun altV -> 
+                        match altV with
+                        | None -> None
+                        | Some target -> 
+                            let totalDamage =
+                                List.init hitCount (fun _ -> 
+                                    let t = rand.UniformDouble()
+                                    damage.Lerp t
+                                )
+                                |> List.sum
+                            let newHp = float target.currentHp - totalDamage
+                            Some {target with currentHp = int newHp}
+                    )
+                )
+            (processed |> HashMap.unionMany)
+        let updateAmmo (currentAmmo : AmmunitionType) =
+            match currentAmmo with
+            | Endless -> Endless
+            | Limited ammoInfo -> 
+                let updatedAmmoInfo =
+                    match ammoInfo.availableShots > 0 with
+                    | true -> ammoInfo.availableShots - 1
+                    | false -> 0
+                       
+                Limited {ammoInfo with availableShots = updatedAmmoInfo}
+
+
         {
-            damage      = Range1d(10,20)
+            damage      = damage
             name        = "Lasergun"
             cooldown    = 0.5
-            ammo        = AmmonitionType.Endless
-            range       = 1000.0
+            ammo        = AmmunitionType.Endless
+            range       = range
             spray       = 0.0
+            canShoot    = canShoot
+            createHitrays = createHitrays
+            createShottrails = createShottrails
+            findHitTargets = findHitTargets
+            processHits = processHits
+            updateAmmo = updateAmmo
         }
 
-    let shotGun =
-        {
-            damage      = Range1d(70,100)
-            name        = "Shotgun"
-            cooldown    = 1.5
-            ammo        = Limited {
-                                    reloadTime      = 5.0
-                                    maxShots        = 2
-                                    availableShots  = 2
-                                  }
-            range       = 10.0
-            spray       = 10.0
-        }
+    let shotGun : Weapon = laserGun
+        //{
+        //    damage      = Range1d(70,100)
+        //    name        = "Shotgun"
+        //    cooldown    = 1.5
+        //    ammo        = Limited {
+        //                            reloadTime      = 5.0
+        //                            maxShots        = 2
+        //                            availableShots  = 2
+        //                          }
+        //    range       = 10.0
+        //    spray       = 10.0
+        //}
 
     let scene (win : IRenderWindow) (activeWeapon : aval<WeaponType>) =
         
