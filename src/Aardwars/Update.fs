@@ -178,7 +178,7 @@ module Update =
         | Resize s -> 
             { model with 
                 size = s
-                proj = Frustum.perspective 90.0 0.1 1000.0 (float s.X / float s.Y) 
+                proj = Frustum.perspective 110.0 0.1 1000.0 (float s.X / float s.Y) 
             }
         | UpdateTime(t, dt) ->
             let model = model |> cam (CameraMessage.UpdateTime(t, dt))

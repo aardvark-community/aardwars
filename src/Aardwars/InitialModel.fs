@@ -47,7 +47,7 @@ module Game =
             onFloor = floor
             size = V2i.II
             camera = { cam with camera = cam.camera.WithLocation(p1) }
-            proj = Frustum.perspective 90.0 0.1 1000.0 1.0
+            proj = Frustum.perspective 150.0 0.1 1000.0 1.0
             time = 0.0
             lastDt = 0.1
             targets = initialTargets

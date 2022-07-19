@@ -39,8 +39,8 @@ module CameraController =
                 elif Vec.dot o.Sky fw < -0.991 then min delta.Y 0.0
                 else delta.Y
             let trafo =
-                M44d.Rotation(r, float dy * -0.005 ) *
-                M44d.Rotation(V3d.OOI, float delta.X * -0.005   )
+                M44d.Rotation(r, float dy * -0.0025 ) *
+                M44d.Rotation(V3d.OOI, float delta.X * -0.0025   )
             let newForward = trafo.TransformDir fw |> Vec.normalize
                     
             let p = o.WithForward newForward
