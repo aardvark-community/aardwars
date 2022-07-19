@@ -38,6 +38,8 @@ module Update =
             match msg with
             | NetworkMessage.UpdatePosition(player, pos) ->
                 env.Emit [UpdatePlayerPos(player, pos)]
+            | NetworkMessage.Hit(player, dmg) ->
+                env.Emit [HitBy(player, dmg)]
             | _ ->
                 printfn "%A" msg
         )   
