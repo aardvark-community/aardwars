@@ -216,9 +216,9 @@ module Update =
             | true -> 
                 let shotRays = weapon.createHitrays model.camera.camera
                 let shotTrail = 
-                    let newTrails = weapon.createShottrails shotRays model.camera.camera model.time
+                    let newTrails = weapon.createShottrails weapon.range shotRays model.camera.camera model.time
                     HashSet.union (HashSet.ofList newTrails) model.shotTrails
-                let hittedTargets = weapon.findHitTargets shotRays model.targets model.camera.camera
+                let hittedTargets = weapon.findHitTargets weapon.range shotRays model.targets model.camera.camera
                 let updatedTargets = 
                     let damaged = weapon.processHits hittedTargets model.targets
                     HashMap.union

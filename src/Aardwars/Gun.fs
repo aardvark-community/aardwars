@@ -58,11 +58,10 @@ type Weapon =
         cooldown         : float
         ammo             : AmmunitionType
         range            : float
-        spray            : float
         canShoot         : AmmunitionType -> bool
         createHitrays    : CameraView -> list<Ray3d>
-        createShottrails : list<Ray3d> -> CameraView -> float -> list<TrailInfo>
-        findHitTargets   : list<Ray3d> -> HashMap<string, Target> ->  CameraView -> list<string>
+        createShottrails : float -> list<Ray3d> -> CameraView -> float -> list<TrailInfo>
+        findHitTargets   : float -> list<Ray3d> -> HashMap<string, Target> ->  CameraView -> list<string>
         processHits      : list<string> -> HashMap<string, Target> -> HashMap<string, Target>
         updateAmmo       : AmmunitionType -> AmmunitionType
         startReload      : AmmunitionType -> float -> AmmunitionType
@@ -76,14 +75,54 @@ module Weapon =
         | Endless -> true
         | Limited ammoInfo -> ammoInfo.availableShots > 0 && ammoInfo.startReloadTime.IsNone
 
+    let updateAmmo (currentAmmo : AmmunitionType) =
+        match currentAmmo with
+        | Endless -> Endless
+        | Limited ammoInfo -> 
+            let updatedAmmoInfo =
+                match ammoInfo.availableShots > 0 with
+                | true -> ammoInfo.availableShots - 1
+                | false -> 0
+                       
+            Limited {ammoInfo with availableShots = updatedAmmoInfo}
+
+    let reload (ammoType : AmmunitionType) =
+        match ammoType with
+        | Endless -> Endless
+        | Limited ammoInfo -> Limited {ammoInfo with availableShots = ammoInfo.maxShots; startReloadTime = None}
+
+    let startReload (ammoType : AmmunitionType) (startTime : float) =
+        match ammoType with
+        | Endless -> Endless
+        | Limited ammoInfo -> Limited {ammoInfo with startReloadTime = Some startTime}
+
+    let findHitTargets (range : float) (rays : list<Ray3d>)(targets : HashMap<string, Target>) (cv : CameraView) : list<string> =
+        rays |> List.choose(fun shotRay -> 
+            targets 
+            |> HashMap.choose (fun name t -> 
+                let d0 = t.pos -  cv.Location
+                let d1 = cv.Forward
+                let inFront = (Vec.dot d0.Normalized d1.Normalized) > 0.0
+                let mutable tout = 0.0
+                let isHit = shotRay.HitsSphere(t.pos,t.radius,&tout)
+                let isHit = isHit && tout <= range
+                match isHit && inFront with
+                |true -> Some tout
+                |false -> None
+            ) 
+            |> HashMap.toList
+            |> List.sortBy snd
+            |> List.tryHead
+            |> Option.map fst
+        )
+
     let laserGun =
-        let range = 1000.0
         let damage = Range1d(10,20)
         let createHitrays (cv : CameraView) : list<Ray3d> = 
             let p = cv.Location
             let d = cv.Forward
             [Ray3d(p, d)]
-        let createShottrails (rays : list<Ray3d>) (cv : CameraView) time =
+        let createShottrails (range : float) (rays : list<Ray3d>) (cv : CameraView) time =
             rays |> List.map(fun shotRay ->
                 let p0 = shotRay.Origin + cv.Right * 0.7 + cv.Down * 0.4
                 
@@ -95,32 +134,6 @@ module Weapon =
                     duration = 1.0
                 }
             )
-        let findHitTargets (rays : list<Ray3d>)(targets : HashMap<string, Target>) (cv : CameraView) : list<string> =
-            rays |> List.choose(fun shotRay -> 
-                targets 
-                |> HashMap.choose (fun name t -> 
-                    let s = Sphere3d(t.pos, t.radius)
-                    //let r = t.radius
-                    //let d = model.camera.camera.Forward
-                    //let x = (model.camera.camera.Location - t.pos)
-                    //let b = 2.0*d*x
-                    //let c = -r*r+x*x
-                    //let rs = (-b + sqrt (b*b-4.0*c))/2.0
-                    let d0 = t.pos -  cv.Location
-                    let d1 = cv.Forward
-                    let inFront = (Vec.dot d0.Normalized d1.Normalized) > 0.0
-                    let mutable tout = 0.0
-                    let isHit = shotRay.HitsSphere(t.pos,t.radius,&tout)
-                    match isHit && inFront with
-                    |true -> Some tout
-                    |false -> None
-                ) 
-                |> HashMap.toList
-                |> List.sortBy snd
-                |> List.tryHead
-                |> Option.map fst
-            )
-
         let processHits (names : list<string>) (targets : HashMap<string, Target>) : HashMap<string, Target> =
             let processed = 
                 names 
@@ -143,30 +156,13 @@ module Weapon =
                     )
                 )
             (processed |> HashMap.unionMany)
-        let updateAmmo (currentAmmo : AmmunitionType) =
-            match currentAmmo with
-            | Endless -> Endless
-            | Limited ammoInfo -> 
-                let updatedAmmoInfo =
-                    match ammoInfo.availableShots > 0 with
-                    | true -> ammoInfo.availableShots - 1
-                    | false -> 0
-                       
-                Limited {ammoInfo with availableShots = updatedAmmoInfo}
-        
-        
-        let reload (ammoType : AmmunitionType) = ammoType
-        let startReload (ammoType : AmmunitionType) (_ : float) = ammoType
-
-
 
         {
             damage              = damage
             name                = "Lasergun"
             cooldown            = 0.5
             ammo                = AmmunitionType.Endless
-            range               = range
-            spray               = 0.0
+            range               = 1000.0
             canShoot            = canShoot
             createHitrays       = createHitrays
             createShottrails    = createShottrails
@@ -178,7 +174,6 @@ module Weapon =
         }
 
     let shotGun : Weapon =
-        let range = 30.0
         let damage = Range1d(5, 12)
         let createHitrays (cv : CameraView) : list<Ray3d> = 
             List.init 10 (fun _ ->
@@ -190,7 +185,7 @@ module Weapon =
                 let d' = p' - p
                 Ray3d(p, d'.Normalized)
             )
-        let createShottrails (rays : list<Ray3d>) (cv : CameraView) time =
+        let createShottrails (range : float) (rays : list<Ray3d>) (cv : CameraView) time =
             rays |> List.map(fun shotRay ->
                 let p0 = shotRay.Origin + cv.Right * 0.3 + cv.Down * 0.15 + cv.Forward * 0.8
                 
@@ -201,32 +196,6 @@ module Weapon =
                     startTime = time
                     duration = 0.5
                 }
-            )
-        let findHitTargets (rays : list<Ray3d>)(targets : HashMap<string, Target>) (cv : CameraView) : list<string> =
-            rays |> List.choose(fun shotRay -> 
-                targets 
-                |> HashMap.choose (fun name t -> 
-                    let s = Sphere3d(t.pos, t.radius)
-                    //let r = t.radius
-                    //let d = model.camera.camera.Forward
-                    //let x = (model.camera.camera.Location - t.pos)
-                    //let b = 2.0*d*x
-                    //let c = -r*r+x*x
-                    //let rs = (-b + sqrt (b*b-4.0*c))/2.0
-                    let d0 = t.pos -  cv.Location
-                    let d1 = cv.Forward
-                    let inFront = (Vec.dot d0.Normalized d1.Normalized) > 0.0
-                    let mutable tout = 0.0
-                    let isHit = shotRay.HitsSphere(t.pos,t.radius,&tout)
-                    let isHit = isHit && tout <= range
-                    match isHit && inFront with
-                    |true -> Some tout
-                    |false -> None
-                ) 
-                |> HashMap.toList
-                |> List.sortBy snd
-                |> List.tryHead
-                |> Option.map fst
             )
 
         let processHits (names : list<string>) (targets : HashMap<string, Target>) : HashMap<string, Target> =
@@ -244,45 +213,8 @@ module Weapon =
                         |> List.sum
                     let newHp = float target.currentHp - totalDamage
                     s, {target with currentHp = int newHp}
-                    
-
-                    //targets
-                    //|> HashMap.alter s (fun altV -> 
-                    //    match altV with
-                    //    | None -> None
-                    //    | Some target -> 
-                    //        let totalDamage =
-                    //            List.init hitCount (fun _ -> 
-                    //                let t = rand.UniformDouble()
-                    //                damage.Lerp t
-                    //            )
-                    //            |> List.sum
-                    //        let newHp = float target.currentHp - totalDamage
-                    //        Some {target with currentHp = int newHp}
-                    //)
                 )
             (processed |> HashMap.ofList)
-        let updateAmmo (currentAmmo : AmmunitionType) =
-            match currentAmmo with
-            | Endless -> Endless
-            | Limited ammoInfo -> 
-                let updatedAmmoInfo =
-                    match ammoInfo.availableShots > 0 with
-                    | true -> ammoInfo.availableShots - 1
-                    | false -> 0
-                       
-                Limited {ammoInfo with availableShots = updatedAmmoInfo}
-
-        let reload (ammoType : AmmunitionType) =
-            match ammoType with
-            | Endless -> Endless
-            | Limited ammoInfo -> Limited {ammoInfo with availableShots = ammoInfo.maxShots; startReloadTime = None}
-
-        let startReload (ammoType : AmmunitionType) (startTime : float) =
-            match ammoType with
-            | Endless -> Endless
-            | Limited ammoInfo -> Limited {ammoInfo with startReloadTime = Some startTime}
-
 
         {
             damage               = damage
@@ -294,8 +226,7 @@ module Weapon =
                                              availableShots  = 2
                                              startReloadTime = None
                                            }
-            range               = range
-            spray               = 0.0
+            range               = 30.0
             canShoot            = canShoot
             createHitrays       = createHitrays
             createShottrails    = createShottrails
