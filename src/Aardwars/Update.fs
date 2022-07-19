@@ -133,7 +133,7 @@ module Update =
 
 
         | UpdatePlayerPos(player, pos) ->
-            { model with otherPlayers = HashMap.add player pos model.otherPlayers }
+            { model with otherPlayers = HashMap.add player {pos=pos} model.otherPlayers }
 
         | MouseMove delta -> model |> cam (CameraMessage.Look delta)
         | KeyDown Keys.W -> model |> cam (CameraMessage.StartMove (V3d(0.0, model.moveSpeed, 0.0)))
@@ -263,27 +263,20 @@ module Update =
             | true -> 
                 let shotRays = weapon.createHitrays model.camera.camera
 
-                let b = Box3d(V3d(-0.3, -0.3, -1.7), V3d(0.3, 0.3, 0.0))
-                model.otherPlayers |> HashMap.iter (fun name pos ->
-                    let b = b.Translated(pos)
-                    let dmg = 
-                        shotRays |> List.sumBy (fun r -> 
-                            let mutable t = 0.0
-                            if b.Intersects(r, &t) && t >= 0.0 then 1.0 
-                            else 0.0
-                        )
-                    if dmg > 0.0 then
-                        let dmg = dmg * 10.0
-                        printfn "%s: %f" name dmg
-                        client.send (NetworkCommand.Hit(name, dmg))
-
-                )
-
-
                 let shotTrail = 
                     let newTrails = weapon.createShottrails weapon.range shotRays model.camera.camera model.time
                     HashSet.union (HashSet.ofList newTrails) model.shotTrails
-                let hittedTargets = weapon.findHitTargets weapon.range shotRays model.targets model.camera.camera
+                let hittedTargets,hitPlayers = weapon.findHitTargets weapon.range shotRays model.targets model.otherPlayers model.camera.camera
+
+                hitPlayers
+                |> List.groupBy id 
+                |> List.iter (fun (otherPlayerName,count) -> 
+                    let hitCount = count |> List.length
+                    let dmg = weapon.calculateDamage hitCount
+                    if dmg > 0 then
+                        client.send (NetworkCommand.Hit(otherPlayerName, dmg))
+                )
+
                 let updatedTargets = 
                     let damaged = weapon.processHits hittedTargets model.targets
                     HashMap.union

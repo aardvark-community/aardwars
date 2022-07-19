@@ -81,22 +81,22 @@ module AnimationState =
 type Model =
     {
         [<NonAdaptive>]
-        world       : World
-        targets     : HashMap<string,Target>
-        onFloor     : bool
-        time        : float
-        lastDt      : float
-        size        : V2i
-        camera      : CameraModel
-        proj        : Frustum
-        moveSpeed   : float
-        airAccel    : float
-        weapons     : HashMap<WeaponType,Weapon>
-        activeWeapon: WeaponType
-        shotTrails  : HashSet<TrailInfo>
-        gunAnimationState : AnimationState
-        otherPlayers : HashMap<string, V3d>
-        hp : float
+        world               : World
+        targets             : HashMap<string,Target>
+        onFloor             : bool
+        time                : float
+        lastDt              : float
+        size                : V2i
+        camera              : CameraModel
+        proj                : Frustum
+        moveSpeed           : float
+        airAccel            : float
+        weapons             : HashMap<WeaponType,Weapon>
+        activeWeapon        : WeaponType
+        shotTrails          : HashSet<TrailInfo>
+        gunAnimationState   : AnimationState
+        otherPlayers        : HashMap<string, OtherPlayerInfo>
+        hp                  : float
     }
 
 

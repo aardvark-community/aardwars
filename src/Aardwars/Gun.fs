@@ -50,6 +50,15 @@ type LastHitInfo =
         name        : string
         hitSeries   : int
     }
+    
+type OtherPlayerInfo =
+    {
+        pos : V3d
+    }
+[<AutoOpen>]
+module Constant =
+    let playerBounds = Box3d(V3d(-0.3, -0.3, -1.7), V3d(0.3, 0.3, 0.0))
+
 
 type Weapon =
     {
@@ -61,8 +70,9 @@ type Weapon =
         canShoot         : AmmunitionType -> bool
         createHitrays    : CameraView -> list<Ray3d>
         createShottrails : float -> list<Ray3d> -> CameraView -> float -> list<TrailInfo>
-        findHitTargets   : float -> list<Ray3d> -> HashMap<string, Target> ->  CameraView -> list<string>
+        findHitTargets   : float -> list<Ray3d> -> HashMap<string, Target> -> HashMap<string, OtherPlayerInfo> ->  CameraView -> list<string> * list<string>
         processHits      : list<string> -> HashMap<string, Target> -> HashMap<string, Target>
+        calculateDamage  : int -> int
         updateAmmo       : AmmunitionType -> AmmunitionType
         startReload      : AmmunitionType -> float -> AmmunitionType
         reload           : AmmunitionType -> AmmunitionType
@@ -101,25 +111,40 @@ module Weapon =
                 | None -> Limited {ammoInfo with startReloadTime = Some startTime}
             else Limited ammoInfo
 
-    let findHitTargets (range : float) (rays : list<Ray3d>)(targets : HashMap<string, Target>) (cv : CameraView) : list<string> =
-        rays |> List.choose(fun shotRay -> 
-            targets 
-            |> HashMap.choose (fun name t -> 
-                let d0 = t.pos -  cv.Location
-                let d1 = cv.Forward
-                let inFront = (Vec.dot d0.Normalized d1.Normalized) > 0.0
-                let mutable tout = 0.0
-                let isHit = shotRay.HitsSphere(t.pos,t.radius,&tout)
-                let isHit = isHit && tout <= range
-                match isHit && inFront with
-                |true -> Some tout
-                |false -> None
-            ) 
-            |> HashMap.toList
-            |> List.sortBy snd
-            |> List.tryHead
-            |> Option.map fst
-        )
+    let findHitTargets (range : float) (rays : list<Ray3d>)(targets : HashMap<string, Target>) (otherPlayers : HashMap<string, OtherPlayerInfo>) (cv : CameraView) =
+        let hitTargets =
+            rays |> List.choose(fun shotRay -> 
+                targets 
+                |> HashMap.choose (fun name t -> 
+                    let d0 = t.pos -  cv.Location
+                    let d1 = cv.Forward
+                    let inFront = (Vec.dot d0.Normalized d1.Normalized) > 0.0
+                    let mutable tout = 0.0
+                    let isHit = shotRay.HitsSphere(t.pos,t.radius,&tout)
+                    let isHit = isHit && tout <= range
+                    match isHit && inFront with
+                    |true -> Some tout
+                    |false -> None
+                ) 
+                |> HashMap.toList
+                |> List.sortBy snd
+                |> List.tryHead
+                |> Option.map fst
+            )
+        let hitPlayers =
+            rays |> List.choose(fun shotRay -> 
+                otherPlayers |> HashMap.toList |> List.choose (fun (name,info) ->
+                    let pos = info.pos
+                    let b = playerBounds.Translated(pos)
+                    let mutable t = 0.0
+                    if b.Intersects(shotRay, &t) && t >= 0.0 && t <= range then Some (name,t)
+                    else None
+                )
+                |> List.sortBy snd
+                |> List.tryHead
+                |> Option.map fst
+            )
+        hitTargets,hitPlayers
 
     let laserGun =
         let damage = Range1d(10,20)
@@ -139,6 +164,14 @@ module Weapon =
                     duration = 1.0
                 }
             )
+        let calculateDamage (hitCount : int) : int =                        
+            List.init hitCount (fun _ -> 
+                let t = rand.UniformDouble()
+                damage.Lerp t
+            )
+            |> List.sum
+            |> int
+            
         let processHits (names : list<string>) (targets : HashMap<string, Target>) : HashMap<string, Target> =
             let processed = 
                 names 
@@ -150,13 +183,7 @@ module Weapon =
                         match altV with
                         | None -> None
                         | Some target -> 
-                            let totalDamage =
-                                List.init hitCount (fun _ -> 
-                                    let t = rand.UniformDouble()
-                                    damage.Lerp t
-                                )
-                                |> List.sum
-                            let newHp = float target.currentHp - totalDamage
+                            let newHp =  target.currentHp - (calculateDamage hitCount)
                             Some {target with currentHp = int newHp}
                     )
                 )
@@ -172,6 +199,7 @@ module Weapon =
             createHitrays       = createHitrays
             createShottrails    = createShottrails
             findHitTargets      = findHitTargets
+            calculateDamage     = calculateDamage
             processHits         = processHits
             updateAmmo          = updateAmmo
             reload              = reload
@@ -202,6 +230,13 @@ module Weapon =
                     duration = 0.5
                 }
             )
+        let calculateDamage (hitCount : int) : int =                        
+            List.init hitCount (fun _ -> 
+                let t = rand.UniformDouble()
+                damage.Lerp t
+            )
+            |> List.sum
+            |> int
 
         let processHits (names : list<string>) (targets : HashMap<string, Target>) : HashMap<string, Target> =
             let processed = 
@@ -210,13 +245,7 @@ module Weapon =
                 |> List.map (fun (s,ss) -> 
                     let hitCount = ss |> List.length
                     let target = targets.Item s
-                    let totalDamage =
-                        List.init hitCount (fun _ -> 
-                            let t = rand.UniformDouble()
-                            damage.Lerp t
-                        )
-                        |> List.sum
-                    let newHp = float target.currentHp - totalDamage
+                    let newHp = target.currentHp - (calculateDamage hitCount)
                     s, {target with currentHp = int newHp}
                 )
             (processed |> HashMap.ofList)
@@ -238,6 +267,7 @@ module Weapon =
             findHitTargets      = findHitTargets
             processHits         = processHits
             updateAmmo          = updateAmmo
+            calculateDamage     = calculateDamage
             reload              = reload
             startReload         = startReload
         }

@@ -2,6 +2,10 @@
 
 open Aardvark.Base
 
+[<AutoOpen>]
+module Constant =
+    let playerBounds = Box3d(V3d(-0.3, -0.3, -1.7), V3d(0.3, 0.3, 0.0))
+
 module Motion = 
 
     let repairMotion (p0 : V3d) (p1 : V3d) (b : Box3d) (r : float) =

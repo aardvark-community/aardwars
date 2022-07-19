@@ -128,7 +128,7 @@ module Game =
                 |> AMap.toAVal
                 |> AVal.map (HashMap.toValueArray >> Array.map Trafo3d.Translation)
 
-            Sg.box' C4b.Yellow (Box3d(V3d(-0.3, -0.3, -1.7), V3d(0.3, 0.3, 0.0)))
+            Sg.box' C4b.Yellow playerBounds
             |> Sg.instanced trafos
             |> Sg.shader {
                 do! DefaultSurfaces.trafo
