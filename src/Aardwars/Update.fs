@@ -113,7 +113,9 @@ module Update =
         | KeyDown Keys.D2 -> { model with activeWeapon = Secondary}
         | KeyDown Keys.R ->
             let weapon = model.weapons.Item model.activeWeapon
-            let updatedWeapons = model.weapons |> HashMap.add model.activeWeapon {weapon with ammo = (weapon.startReload weapon.ammo model.time)}
+            let updatedWeapons = 
+                model.weapons 
+                |> HashMap.add model.activeWeapon {weapon with ammo = (weapon.startReload weapon.ammo model.time)}
             {model with weapons = updatedWeapons}
         | KeyDown Keys.Back -> 
             let respawnLocation = model.world.Bounds.Center.XYZ + V3d.OOI*10.0
@@ -209,10 +211,16 @@ module Update =
             
         | Shoot -> 
             let weapon = model.weapons.Item model.activeWeapon
-            
+            let weapon = 
+                match weapon.ammo with
+                | Endless -> weapon
+                | Limited ammoInfo -> 
+                    match ammoInfo.availableShots <= 0 with
+                    | false -> weapon
+                    | true -> {weapon with ammo =  weapon.startReload weapon.ammo model.time}
             let canShoot = weapon.canShoot weapon.ammo
             match canShoot with
-            | false -> model
+            | false -> {model with weapons = model.weapons |> HashMap.add model.activeWeapon weapon}
             | true -> 
                 let shotRays = weapon.createHitrays model.camera.camera
                 let shotTrail = 
@@ -225,15 +233,8 @@ module Update =
                         model.targets
                         damaged
                     |> HashMap.filter (fun _ t -> t.currentHp > 0)
-                let reducedWeapon = {weapon with ammo = weapon.updateAmmo weapon.ammo}
-                let updatedWeapon = 
-                    match reducedWeapon.ammo with
-                    | Endless -> reducedWeapon
-                    | Limited ammoInfo -> 
-                        match ammoInfo.availableShots <= 0 with
-                        | false -> reducedWeapon
-                        | true -> {reducedWeapon with ammo =  reducedWeapon.startReload reducedWeapon.ammo model.time}
-                            
+                let updatedWeapon = {weapon with ammo = weapon.updateAmmo weapon.ammo}
+
                 { model with
                     targets = updatedTargets
                     weapons = model.weapons |> HashMap.add model.activeWeapon updatedWeapon

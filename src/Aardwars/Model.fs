@@ -76,6 +76,7 @@ module AnimationState =
             lastFw = V3d.Zero
         } 
 
+
 [<ModelType>]
 type Model =
     {
@@ -95,6 +96,7 @@ type Model =
         shotTrails  : HashSet<TrailInfo>
         gunAnimationState : AnimationState
         
+
     }
 
 

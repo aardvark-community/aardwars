@@ -18,8 +18,8 @@ module Game =
         
         let world = World.randomGenerated 5000 (V2i(150,150)) 1.75
         //let world = 
-        //    let textures = @"C:\minecraftzeug\textures"
-        //    let map = @"C:\minecraftzeug\Small Worlds"
+        //    let textures = @"C:\minecraft\textures"
+        //    let map = @"C:\minecraft\Small Worlds"
         //    let atlas, tree = MinecraftWorld.load env.Runtime textures map
         //    World.minecraft env.Window atlas tree 1.75
 
@@ -101,7 +101,10 @@ module Game =
                         match w.ammo with
                         | Endless -> sprintf "Weapon: %s\tAmmo: Inf" w.name
                         | Limited ammoInfo -> 
-                            sprintf "Weapon: %s\tAmmo: %i/%i" w.name ammoInfo.availableShots ammoInfo.maxShots
+                            let rld = 
+                                if ammoInfo.startReloadTime |> Option.isSome then " (reloading ...)"
+                                else ""
+                            sprintf "Weapon: %s\tAmmo: %i/%i%s" w.name ammoInfo.availableShots ammoInfo.maxShots rld
                     )
 
                 Text.weaponTextSg env.Window text

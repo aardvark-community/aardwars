@@ -300,7 +300,7 @@ module World =
                 do! Shader.boxy
                 do! Shader.texy
                 do! DefaultSurfaces.simpleLighting
-                //do! Shader.foggy
+                do! Shader.foggy
             }   
             |> Sg.texture' "Atlas" tex
             //|> Sg.cullMode' CullMode.Back

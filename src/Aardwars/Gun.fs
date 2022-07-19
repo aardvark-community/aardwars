@@ -94,7 +94,12 @@ module Weapon =
     let startReload (ammoType : AmmunitionType) (startTime : float) =
         match ammoType with
         | Endless -> Endless
-        | Limited ammoInfo -> Limited {ammoInfo with startReloadTime = Some startTime}
+        | Limited ammoInfo -> 
+            if ammoInfo.availableShots < ammoInfo.maxShots then 
+                match ammoInfo.startReloadTime with 
+                | Some _ -> Limited ammoInfo
+                | None -> Limited {ammoInfo with startReloadTime = Some startTime}
+            else Limited ammoInfo
 
     let findHitTargets (range : float) (rays : list<Ray3d>)(targets : HashMap<string, Target>) (cv : CameraView) : list<string> =
         rays |> List.choose(fun shotRay -> 
