@@ -16,12 +16,12 @@ module Game =
 
     let intitial (env : Environment<Message>) = 
         
-        let world = World.randomGenerated 0 (V2i(150,150)) 1.75
-        //let world = 
-        //    let textures = @"C:\minecraft\textures"
-        //    let map = @"C:\minecraft\Small Worlds"
-        //    let atlas, tree = MinecraftWorld.load env.Runtime textures map
-        //    World.minecraft env.Window atlas tree 1.75
+        //let world = World.randomGenerated 0 (V2i(150,150)) 1.75
+        let world = 
+            let textures = @"C:\Users\Schorsch\Desktop\mc"
+            let map = @"C:\Users\Schorsch\Desktop\Small Worlds"
+            let atlas, tree = MinecraftWorld.load env.Runtime textures map
+            World.minecraft env.Window atlas tree 1.75
 
         let center = world.Bounds.Center.XYO + world.Bounds.Max.OOZ + V3d(0.1, 0.2, 0.4)
         
@@ -61,6 +61,7 @@ module Game =
             shotTrails = HashSet.empty
             gunAnimationState = AnimationState.initial
             otherPlayers = HashMap.empty
+            hp = 100.0
         }
 
     let view (client : NetworkClient) (env : Environment<Message>) (model : AdaptiveModel) =
@@ -97,15 +98,15 @@ module Game =
                     )
 
                 let text = 
-                    weapon 
-                    |> AVal.map (fun w -> 
+                    (weapon, model.hp) 
+                    ||> AVal.map2 (fun w hp -> 
                         match w.ammo with
-                        | Endless -> sprintf "Weapon: %s\tAmmo: Inf" w.name
+                        | Endless -> sprintf "Weapon: %s\tAmmo: Inf\tHP:%.0f" w.name hp
                         | Limited ammoInfo -> 
                             let rld = 
                                 if ammoInfo.startReloadTime |> Option.isSome then " (reloading ...)"
                                 else ""
-                            sprintf "Weapon: %s\tAmmo: %i/%i%s" w.name ammoInfo.availableShots ammoInfo.maxShots rld
+                            sprintf "Weapon: %s\tAmmo: %i/%i%s\tHP:%.0f" w.name ammoInfo.availableShots ammoInfo.maxShots rld hp
                     )
 
                 Text.weaponTextSg env.Window text

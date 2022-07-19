@@ -96,7 +96,7 @@ type Model =
         shotTrails  : HashSet<TrailInfo>
         gunAnimationState : AnimationState
         otherPlayers : HashMap<string, V3d>
-
+        hp : float
     }
 
 

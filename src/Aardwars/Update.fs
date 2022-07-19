@@ -21,8 +21,11 @@ type Message =
     | UpdateAnimationState of AnimationState
     | Shoot
     | UpdatePlayerPos of string * V3d
+    | HitBy of string * float
 
 module Update =
+    let rand = RandomSystem()
+
     
     let events (client : NetworkClient) (env : Environment<Message>) =
         let win = env.Window
@@ -107,6 +110,26 @@ module Update =
                 }
 
         match message with
+        | HitBy(player, dmg) ->
+            let hp = model.hp - dmg
+            if hp <= 0.0 then
+                client.send (NetworkCommand.Died player)
+
+                let b = model.world.Bounds
+                let respawnLocation = 
+                    let p = rand.UniformV2d(Box2d(b.Min.XY, b.Max.XY))
+                    V3d(p, b.Max.Z)
+                let newCameraView = model.camera.camera.WithLocation(respawnLocation)
+                let modelCamera = { model.camera with camera = newCameraView  }
+
+                { model with
+                    hp = 100.0
+                    camera = modelCamera
+                }
+            else
+                { model with hp = hp }
+
+
         | UpdatePlayerPos(player, pos) ->
             { model with otherPlayers = HashMap.add player pos model.otherPlayers }
 
@@ -237,6 +260,24 @@ module Update =
             | false -> {model with weapons = model.weapons |> HashMap.add model.activeWeapon weapon}
             | true -> 
                 let shotRays = weapon.createHitrays model.camera.camera
+
+                let b = Box3d(V3d(-0.3, -0.3, -1.7), V3d(0.3, 0.3, 0.0))
+                model.otherPlayers |> HashMap.iter (fun name pos ->
+                    let b = b.Translated(pos)
+                    let dmg = 
+                        shotRays |> List.sumBy (fun r -> 
+                            let mutable t = 0.0
+                            if b.Intersects(r, &t) && t >= 0.0 then 1.0 
+                            else 0.0
+                        )
+                    if dmg > 0.0 then
+                        let dmg = dmg * 10.0
+                        printfn "%s: %f" name dmg
+                        client.send (NetworkCommand.Hit(name, dmg))
+
+                )
+
+
                 let shotTrail = 
                     let newTrails = weapon.createShottrails weapon.range shotRays model.camera.camera model.time
                     HashSet.union (HashSet.ofList newTrails) model.shotTrails
