@@ -126,7 +126,7 @@ module Game =
             let trafos = 
                 model.otherPlayers 
                 |> AMap.toAVal
-                |> AVal.map (HashMap.toValueArray >> Array.map Trafo3d.Translation)
+                |> AVal.map (HashMap.toValueArray >> Array.map (fun pi -> pi.pos |> Trafo3d.Translation))
 
             Sg.box' C4b.Yellow playerBounds
             |> Sg.instanced trafos
