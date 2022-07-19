@@ -64,6 +64,7 @@ type Weapon =
         findHitTargets   : list<Ray3d> -> HashMap<string, Target> ->  CameraView -> list<string>
         processHits      : list<string> -> HashMap<string, Target> -> HashMap<string, Target>
         updateAmmo       : AmmunitionType -> AmmunitionType
+        reload           : AmmunitionType -> AmmunitionType
     }
 
 module Weapon =
@@ -149,21 +150,27 @@ module Weapon =
                     | false -> 0
                        
                 Limited {ammoInfo with availableShots = updatedAmmoInfo}
+        
+        
+        let reload (ammoType : AmmunitionType) =
+            ammoType 
+
 
 
         {
-            damage      = damage
-            name        = "Lasergun"
-            cooldown    = 0.5
-            ammo        = AmmunitionType.Endless
-            range       = range
-            spray       = 0.0
-            canShoot    = canShoot
-            createHitrays = createHitrays
-            createShottrails = createShottrails
-            findHitTargets = findHitTargets
-            processHits = processHits
-            updateAmmo = updateAmmo
+            damage              = damage
+            name                = "Lasergun"
+            cooldown            = 0.5
+            ammo                = AmmunitionType.Endless
+            range               = range
+            spray               = 0.0
+            canShoot            = canShoot
+            createHitrays       = createHitrays
+            createShottrails    = createShottrails
+            findHitTargets      = findHitTargets
+            processHits         = processHits
+            updateAmmo          = updateAmmo
+            reload              = reload
         }
 
     let shotGun : Weapon =
@@ -266,37 +273,32 @@ module Weapon =
                        
                 Limited {ammoInfo with availableShots = updatedAmmoInfo}
 
+        let reload (ammoType : AmmunitionType) =
+            match ammoType with
+            | Endless -> Endless
+            | Limited ammoInfo -> Limited {ammoInfo with availableShots = ammoInfo.maxShots}
+
 
         {
-            damage      = damage
-            name        = "Shotgun"
-            cooldown    = 0.5
-            ammo        = Limited {
-                                    reloadTime      = 5.0
-                                    maxShots        = 50
-                                    availableShots  = 50
-                                  }
-            range       = range
-            spray       = 0.0
-            canShoot    = canShoot
-            createHitrays = createHitrays
-            createShottrails = createShottrails
-            findHitTargets = findHitTargets
-            processHits = processHits
-            updateAmmo = updateAmmo
+            damage               = damage
+            name                 = "Shotgun"
+            cooldown             = 0.5
+            ammo                 = Limited {
+                                             reloadTime      = 3.0
+                                             maxShots        = 2
+                                             availableShots  = 2
+                                           }
+            range               = range
+            spray               = 0.0
+            canShoot            = canShoot
+            createHitrays       = createHitrays
+            createShottrails    = createShottrails
+            findHitTargets      = findHitTargets
+            processHits         = processHits
+            updateAmmo          = updateAmmo
+            reload              = reload
         }
-        //{
-        //    damage      = Range1d(70,100)
-        //    name        = "Shotgun"
-        //    cooldown    = 1.5
-        //    ammo        = Limited {
-        //                            reloadTime      = 5.0
-        //                            maxShots        = 2
-        //                            availableShots  = 2
-        //                          }
-        //    range       = 10.0
-        //    spray       = 10.0
-        //}
+        
 
     let scene 
         (emitGunT : V3d -> V3d -> unit)

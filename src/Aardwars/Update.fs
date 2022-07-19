@@ -111,7 +111,10 @@ module Update =
         | KeyUp Keys.Space -> model
         | KeyDown Keys.D1 -> { model with activeWeapon = Primary}
         | KeyDown Keys.D2 -> { model with activeWeapon = Secondary}
-        //| KeyDown Keys.R -> 
+        | KeyDown Keys.R ->
+            let weapon = model.weapons.Item model.activeWeapon
+            let updatedWeapons = model.weapons |> HashMap.add model.activeWeapon {weapon with ammo = (weapon.reload weapon.ammo)}
+            {model with weapons = updatedWeapons}
         | KeyDown Keys.Back -> 
             let respawnLocation = model.world.Bounds.Center.XYZ + V3d.OOI*10.0
             let newCameraView = model.camera.camera.WithLocation(respawnLocation)
@@ -201,9 +204,15 @@ module Update =
                         model.targets
                         damaged
                     |> HashMap.filter (fun _ t -> t.currentHp > 0)
-
-                let updatedWeapon = {weapon with ammo = weapon.updateAmmo weapon.ammo}
-
+                let reducedWeapon = {weapon with ammo = weapon.updateAmmo weapon.ammo}
+                let updatedWeapon = 
+                    match reducedWeapon.ammo with
+                    | Endless -> reducedWeapon
+                    | Limited ammoInfo -> 
+                        match ammoInfo.availableShots <= 0 with
+                        | false -> reducedWeapon
+                        | true -> {reducedWeapon with ammo =  reducedWeapon.reload reducedWeapon.ammo}
+                            
                 { model with
                     targets = updatedTargets
                     weapons = model.weapons |> HashMap.add model.activeWeapon updatedWeapon
