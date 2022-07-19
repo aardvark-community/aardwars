@@ -16,7 +16,7 @@ module Game =
 
     let intitial (env : Environment<Message>) = 
         
-        let world = World.randomGenerated 5000 (V2i(150,150)) 1.75
+        let world = World.randomGenerated 0 (V2i(150,150)) 1.75
         //let world = 
         //    let textures = @"C:\minecraft\textures"
         //    let map = @"C:\minecraft\Small Worlds"
@@ -60,11 +60,12 @@ module Game =
             activeWeapon = Primary
             shotTrails = HashSet.empty
             gunAnimationState = AnimationState.initial
+            otherPlayers = HashMap.empty
         }
 
-    let view (env : Environment<Message>) (model : AdaptiveModel) =
+    let view (client : NetworkClient) (env : Environment<Message>) (model : AdaptiveModel) =
         
-        Update.events env
+        Update.events client env
         let worldSg = model.world.Scene env.Window
 
         let gunSg = 
@@ -120,7 +121,21 @@ module Game =
                 Target.SceneGraph t name
             ) |> Sg.set
             
-        Sg.ofList [worldSg; gunSg; textSg; targetsSg; trailsSg; Skybox.scene]
+        let otherPlayers =
+            let trafos = 
+                model.otherPlayers 
+                |> AMap.toAVal
+                |> AVal.map (HashMap.toValueArray >> Array.map Trafo3d.Translation)
+
+            Sg.box' C4b.Yellow (Box3d(V3d(-0.3, -0.3, -1.7), V3d(0.3, 0.3, 0.0)))
+            |> Sg.instanced trafos
+            |> Sg.shader {
+                do! DefaultSurfaces.trafo
+                do! DefaultSurfaces.simpleLighting
+            }
+
+
+        Sg.ofList [worldSg; gunSg; textSg; targetsSg; trailsSg; otherPlayers; Skybox.scene]
             |> Sg.viewTrafo (model.camera.camera |> AVal.map CameraView.viewTrafo)
             |> Sg.projTrafo (model.proj |> AVal.map Frustum.projTrafo)
 

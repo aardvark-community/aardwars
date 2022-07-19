@@ -20,16 +20,25 @@ type Message =
     | UpdateTime of seconds : float * delta : float
     | UpdateAnimationState of AnimationState
     | Shoot
+    | UpdatePlayerPos of string * V3d
 
 module Update =
     
-    let events (env : Environment<Message>) =
+    let events (client : NetworkClient) (env : Environment<Message>) =
         let win = env.Window
         let glfw = win.GetType().GetField("glfw", BindingFlags.NonPublic ||| BindingFlags.Instance).GetValue(win) :?> Silk.NET.GLFW.Glfw
         let hwin = win.GetType().GetField("win", BindingFlags.NonPublic ||| BindingFlags.Instance).GetValue(win) :?> nativeptr<Silk.NET.GLFW.WindowHandle>
         let mutable mouseDelta = V2d.Zero
         win.Cursor <- Cursor.None
     
+        client.receive.Add (fun msg ->
+            match msg with
+            | NetworkMessage.UpdatePosition(player, pos) ->
+                env.Emit [UpdatePlayerPos(player, pos)]
+            | _ ->
+                printfn "%A" msg
+        )   
+
         win.Mouse.Move.Values.Add(fun (o,n) ->
             let c = V2d (AVal.force win.Sizes) / 2.0
             let mutable px = 0.0
@@ -63,7 +72,7 @@ module Update =
             env.Emit [Resize s]
         ) |> ignore
 
-    let update (env : Environment<Message>) (model : Model) (message : Message) =
+    let update (client : NetworkClient) (env : Environment<Message>) (model : Model) (message : Message) =
         let inline cam (msg : CameraMessage) (m : Model) =
             let p0 = m.camera.camera.Location
             let newCam = CameraController.update model.camera msg
@@ -98,6 +107,9 @@ module Update =
                 }
 
         match message with
+        | UpdatePlayerPos(player, pos) ->
+            { model with otherPlayers = HashMap.add player pos model.otherPlayers }
+
         | MouseMove delta -> model |> cam (CameraMessage.Look delta)
         | KeyDown Keys.W -> model |> cam (CameraMessage.StartMove (V3d(0.0, model.moveSpeed, 0.0)))
         | KeyUp Keys.W -> model |> cam (CameraMessage.StopMove (V3d(0.0, model.moveSpeed, 0.0)))
@@ -178,6 +190,8 @@ module Update =
                         lastFw = model.camera.camera.Forward
                     }
                 }
+
+            client.send (NetworkCommand.UpdatePosition model.camera.camera.Location)
 
             if model.onFloor then
                 { model with

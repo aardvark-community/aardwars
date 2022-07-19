@@ -95,7 +95,7 @@ type Model =
         activeWeapon: WeaponType
         shotTrails  : HashSet<TrailInfo>
         gunAnimationState : AnimationState
-        
+        otherPlayers : HashMap<string, V3d>
 
     }
 
