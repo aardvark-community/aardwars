@@ -63,7 +63,7 @@ module Scene =
             Sg.box' C4b.Red Box3d.Unit
             |> Sg.diffuseTexture tex
             |> Sg.shader {
-                do! DefaultSurfaces.trafo
+                do! DefaultSurfaces.stableTrafo
                 do! DefaultSurfaces.diffuseTexture
                 do! Shader.foggy
                 //do! DefaultSurfaces.simpleLighting
@@ -88,7 +88,7 @@ module Scene =
     
         let createCube x y z offset =
             let p = 
-                Trafo3d.Scale(1.01) *
+                //Trafo3d.Scale(1.01) *
                 Trafo3d.Translation(float x, float y, float z) *
                 Trafo3d.Translation(V3d(-offset, 0.0))
             p, (materials.[randomMaterial.Next(0,materials.Length)])
@@ -135,7 +135,7 @@ module Scene =
         let trafos = sparseTrafos fullGrid gridSize
         let worldBoxes = 
             trafos |> Array.map (fun (t,_) -> 
-                let b = Box3d.Unit.Transformed(t)
+                let b = Box3d.Unit.Transformed(Trafo3d.Scale(1.01) * t)
                 //Box3d.FromCenterAndSize(b.Center, b.Size + V3d.III * 0.01)
                 b
             )

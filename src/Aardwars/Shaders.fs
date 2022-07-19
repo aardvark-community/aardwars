@@ -109,12 +109,21 @@ module Shader =
     let foggy (v : Effects.Vertex) =
         fragment {
             // get world position
-            let p = v.wp.XYZ
+            let depth = 0.5 * (v.pos.Z / v.pos.W) + 0.5
+            let d = lerp 0.1 1000.0 depth + 10.0
+            //let p = v.wp.XYZ
             
-            // Find the depth of the fragment
-            let d = Vec.distance p uniform.CameraLocation - 10.0
+            let va = 2.0 * max 0.0 (depth ** 64.0 - 0.5)
+            //// Find the depth of the fragment
+            //let d = Vec.distance p uniform.CameraLocation - 10.0
+
+
+            // v = 0 -> 0.0
+            // v = 1 -> 1.0
+
+
 
             // apply
-            let f = exp (-d * 0.0625) |> clamp 0.0 1.0
-            return lerp fogColor v.c f
+            let f = va //exp (v * 0.0625) |> clamp 0.0 1.0
+            return lerp v.c fogColor f
         }
