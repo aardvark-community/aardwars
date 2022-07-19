@@ -17,6 +17,7 @@ open FShade
 type AmmoInfo = 
     {
         reloadTime : float
+        startReloadTime : Option<float>
         maxShots : int
         availableShots : int
     }
@@ -64,18 +65,20 @@ type Weapon =
         findHitTargets   : list<Ray3d> -> HashMap<string, Target> ->  CameraView -> list<string>
         processHits      : list<string> -> HashMap<string, Target> -> HashMap<string, Target>
         updateAmmo       : AmmunitionType -> AmmunitionType
+        startReload      : AmmunitionType -> float -> AmmunitionType
         reload           : AmmunitionType -> AmmunitionType
     }
 
 module Weapon =
     let rand = RandomSystem()
+    let canShoot (t : AmmunitionType) : bool = 
+        match t with
+        | Endless -> true
+        | Limited ammoInfo -> ammoInfo.availableShots > 0 && ammoInfo.startReloadTime.IsNone
+
     let laserGun =
         let range = 1000.0
         let damage = Range1d(10,20)
-        let canShoot (t : AmmunitionType) : bool = 
-            match t with
-                | Endless -> true
-                | Limited ammoInfo -> ammoInfo.availableShots > 0
         let createHitrays (cv : CameraView) : list<Ray3d> = 
             let p = cv.Location
             let d = cv.Forward
@@ -152,8 +155,8 @@ module Weapon =
                 Limited {ammoInfo with availableShots = updatedAmmoInfo}
         
         
-        let reload (ammoType : AmmunitionType) =
-            ammoType 
+        let reload (ammoType : AmmunitionType) = ammoType
+        let startReload (ammoType : AmmunitionType) (_ : float) = ammoType
 
 
 
@@ -171,15 +174,12 @@ module Weapon =
             processHits         = processHits
             updateAmmo          = updateAmmo
             reload              = reload
+            startReload         = startReload
         }
 
     let shotGun : Weapon =
         let range = 30.0
         let damage = Range1d(5, 12)
-        let canShoot (t : AmmunitionType) : bool = 
-            match t with
-                | Endless -> true
-                | Limited ammoInfo -> ammoInfo.availableShots > 0
         let createHitrays (cv : CameraView) : list<Ray3d> = 
             List.init 10 (fun _ ->
                 let u = (rand.UniformDouble() * 2.0 - 1.0) * 0.1
@@ -276,7 +276,12 @@ module Weapon =
         let reload (ammoType : AmmunitionType) =
             match ammoType with
             | Endless -> Endless
-            | Limited ammoInfo -> Limited {ammoInfo with availableShots = ammoInfo.maxShots}
+            | Limited ammoInfo -> Limited {ammoInfo with availableShots = ammoInfo.maxShots; startReloadTime = None}
+
+        let startReload (ammoType : AmmunitionType) (startTime : float) =
+            match ammoType with
+            | Endless -> Endless
+            | Limited ammoInfo -> Limited {ammoInfo with startReloadTime = Some startTime}
 
 
         {
@@ -284,9 +289,10 @@ module Weapon =
             name                 = "Shotgun"
             cooldown             = 0.5
             ammo                 = Limited {
-                                             reloadTime      = 3.0
+                                             reloadTime      = 1.5
                                              maxShots        = 2
                                              availableShots  = 2
+                                             startReloadTime = None
                                            }
             range               = range
             spray               = 0.0
@@ -297,6 +303,7 @@ module Weapon =
             processHits         = processHits
             updateAmmo          = updateAmmo
             reload              = reload
+            startReload         = startReload
         }
         
 

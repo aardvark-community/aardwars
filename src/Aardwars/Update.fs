@@ -113,7 +113,7 @@ module Update =
         | KeyDown Keys.D2 -> { model with activeWeapon = Secondary}
         | KeyDown Keys.R ->
             let weapon = model.weapons.Item model.activeWeapon
-            let updatedWeapons = model.weapons |> HashMap.add model.activeWeapon {weapon with ammo = (weapon.reload weapon.ammo)}
+            let updatedWeapons = model.weapons |> HashMap.add model.activeWeapon {weapon with ammo = (weapon.startReload weapon.ammo model.time)}
             {model with weapons = updatedWeapons}
         | KeyDown Keys.Back -> 
             let respawnLocation = model.world.Bounds.Center.XYZ + V3d.OOI*10.0
@@ -147,6 +147,27 @@ module Update =
                 model.shotTrails
                 |> HashSet.filter (fun trail -> trail.duration + trail.startTime > t)
             let model = { model with shotTrails = newTrailSet}
+
+            let updatedWeapons = 
+                model.weapons
+                |> HashMap.map (fun weaponType weapon -> 
+                    match weapon.ammo with
+                    | Endless -> weapon
+                    | Limited ammoInfo ->
+                        match ammoInfo.startReloadTime with 
+                        | None -> weapon
+                        | Some startTime -> 
+                            if model.activeWeapon = weaponType then
+                                let isFinished = startTime + ammoInfo.reloadTime <= t
+                                if isFinished then
+                                    {weapon with ammo = (weapon.reload weapon.ammo)}
+                                else
+                                    weapon
+                            else
+                                {weapon with ammo = Limited { ammoInfo with startReloadTime = None } } 
+                )
+            let model = { model with weapons = updatedWeapons}
+
 
             let model = 
                 {model with 
@@ -211,7 +232,7 @@ module Update =
                     | Limited ammoInfo -> 
                         match ammoInfo.availableShots <= 0 with
                         | false -> reducedWeapon
-                        | true -> {reducedWeapon with ammo =  reducedWeapon.reload reducedWeapon.ammo}
+                        | true -> {reducedWeapon with ammo =  reducedWeapon.startReload reducedWeapon.ammo model.time}
                             
                 { model with
                     targets = updatedTargets
