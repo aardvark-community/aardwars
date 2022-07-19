@@ -244,8 +244,10 @@ module NetworkGroup =
                                 let w = new StreamWriter(s)
 
                                 let inline send (dst : TextWriter) (msg : NetworkMessage) =
-                                    try dst.WriteLine (NetworkMessage.pickle msg)
-                                    with _ -> ()
+                                    lock dst (fun () ->
+                                        try dst.WriteLine (NetworkMessage.pickle msg)
+                                        with _ -> ()
+                                    )
                                     
                                     
 
@@ -291,20 +293,6 @@ module NetworkGroup =
 
                                             | None ->
                                                 ()
-
-                                            //if msg.StartsWith "#" then
-                                            //    match msg with
-                                            //    | "#players" ->
-                                            //        let players = clients |> Seq.map (fun (KeyValue(k,_)) -> sprintf "\"%s\"" k) |> String.concat ", " |> sprintf "[%s]"
-                                            //        w.WriteLine players
-                                            //    | cmd ->
-                                            //        w.WriteLine (sprintf "#error: %A" cmd)
-                                            //else
-
-                                            //    for KeyValue(name, c) in clients do
-                                            //        if name <> clientId then
-                                            //            try c.WriteLine(msg); c.Flush()
-                                            //            with _ -> ()
 
                                     with _ ->
                                     
