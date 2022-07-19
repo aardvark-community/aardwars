@@ -326,33 +326,37 @@ module Weapon =
                 |> Frustum.projTrafo
             )
         let gunMotionTrafo =
-            let lerpFactor = 20.999               
+            let translationLerpFactor = 20.999      
+            let angleLerpFactor = 10.0        
             AVal.custom (fun tok -> 
                 let move = moveVec.GetValue tok
                 let dt = dt.GetValue tok
                 let fw = fw.GetValue tok
-                let da = (dt * lerpFactor)
                 let gunT = gunT.GetValue()
                 let gunA = gunA.GetValue()
                 let gunLastFw = gunLastFw.GetValue()
 
+                let da = dt * translationLerpFactor
                 let tx = 
                     let t = (move.X / 5.0) |> clamp -1.0 1.0
                     lerp gunT.X t da
                 let ty = 
                     let t = (move.Y / 5.0) |> clamp -1.0 1.0
                     lerp gunT.Y t da
-                    
-                let ax = 
-                    let v = clamp -1.0 1.0 (gunLastFw.X - fw.X)
-                    lerp gunA.X v 0.08
-                let ay = 
-                    let v = clamp -1.0 1.0 (gunLastFw.Y - fw.Y)
-                    lerp gunA.Y v 0.08
 
-                emitGunT (V3d(tx,ty,gunT.Z)) (V3d(ax,ay,gunA.Z))
-                Trafo3d.RotationZInDegrees(45.0 * ax) * 
-                //Trafo3d.RotationXInDegrees(45.0 * ay) *
+                let da = dt * angleLerpFactor
+                let ax = 
+                    let a = gunLastFw.XY
+                    let b = fw.XY
+                    let v = 
+                        if Vec.AngleBetween(a,b) < 0.01 then 0.0
+                        else clamp -1.0 1.0 ((atan2 (a.X*b.Y - a.Y*b.X) (a.X*b.X + a.Y*b.Y)) / Constant.Pi)
+                    lerp gunA.X v da
+                let inline anpassen a =
+                    clamp -180.0 180.0 (-((a) * 720.0))
+
+                emitGunT (V3d(tx,ty,gunT.Z)) (V3d(ax,gunA.Y,gunA.Z))
+                Trafo3d.RotationYInDegrees(anpassen ax) * 
                 Trafo3d.Translation(tx,0.0,ty)
             )
             
