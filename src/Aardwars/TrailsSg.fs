@@ -43,7 +43,7 @@ module Trails =
                     let elapsed = maxTime - time
                     if elapsed > 0.0 then 
                         let t = float32 <| elapsed / ti.duration
-                        [|t;t|]
+                        [|t;t**2.0f|]
                     else
                         [|0.0f;0.0f|]
                 )

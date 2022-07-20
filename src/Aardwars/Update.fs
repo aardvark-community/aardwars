@@ -19,6 +19,7 @@ type Message =
     | Resize of newSize : V2i
     | UpdateTime of seconds : float * delta : float
     | UpdateAnimationState of AnimationState
+    | SpawnShotTrails of list<TrailInfo>
     | Shoot
     | UpdatePlayerPos of string * V3d
     | HitBy of string * float
@@ -43,6 +44,8 @@ module Update =
                 env.Emit [HitBy(player, dmg)]
             | NetworkMessage.Stats s ->
                 env.Emit [UpdateStats s]
+            | NetworkMessage.SpawnShotTrails trails -> 
+                env.Emit [SpawnShotTrails (trails |> List.map (fun (l,s,d) -> {Line=l;startTime=s;duration=d}))]
             | _ ->
                 printfn "%A" msg
         )   
@@ -186,7 +189,9 @@ module Update =
             }
         | UpdateStats s -> 
             let myNewFrags = s |> Map.tryFind model.playerName |> Option.defaultValue 0
-            let newOthers = (model.otherPlayers, s) ||> Map.fold (fun others name f -> others |> HashMap.update name (function Some o -> {o with frags=f}|None -> {pos=V3d.NaN;frags=f}))
+            let newOthers = 
+                (model.otherPlayers, s) ||> Map.fold (fun others name f -> others |> HashMap.update name (function Some o -> {o with frags=f}|None -> {pos=V3d.NaN;frags=f}))
+                |> HashMap.remove model.playerName
             {model with frags=myNewFrags; otherPlayers=newOthers}
         | UpdateTime(t, dt) ->
             let model = model |> cam (CameraMessage.UpdateTime(t, dt))
@@ -265,7 +270,9 @@ module Update =
                     model
                 | MouseButtons.Right -> model
                 | _ -> model
-            
+        | SpawnShotTrails trails -> 
+            let nts = HashSet.union (HashSet.ofList trails) model.shotTrails
+            {model with shotTrails = nts}
         | Shoot -> 
             let weapon = model.weapons.Item model.activeWeapon
             let weapon = 
@@ -284,9 +291,11 @@ module Update =
             | true -> 
                 let shotRays = weapon.createHitrays model.camera.camera
 
-                let shotTrail = 
+                let newTrails = 
                     let newTrails = weapon.createShottrails weapon.range shotRays model.camera.camera model.time
-                    HashSet.union (HashSet.ofList newTrails) model.shotTrails
+                    client.send (NetworkCommand.SpawnShotTrails (newTrails |> List.map (fun info -> info.Line, info.startTime, info.duration)))
+                    newTrails
+
                 let hittedTargets,hitPlayers,floorHits = Weapon.findHitTargets weapon.range shotRays model.world model.targets model.otherPlayers model.camera.camera
 
                 let mutable newHits = 
@@ -326,9 +335,9 @@ module Update =
                     |> HashMap.filter (fun _ t -> t.currentHp > 0)
                 let updatedWeapon = {weapon with ammo = weapon.updateAmmo weapon.ammo; lastShotTime = Some model.time }
                 
+                env.Emit [SpawnShotTrails newTrails]
                 { model with
                     targets = updatedTargets
                     weapons = model.weapons |> HashMap.add model.activeWeapon updatedWeapon
-                    shotTrails = shotTrail
                     hitAnimations = HashSet.union model.hitAnimations newHits
                 }

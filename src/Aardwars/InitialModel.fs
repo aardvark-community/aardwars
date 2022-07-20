@@ -165,12 +165,12 @@ module Game =
                     (weapon, model.hp) 
                     ||> AVal.map2 (fun w hp -> 
                         match w.ammo with
-                        | Endless -> sprintf "Weapon: %s\tAmmo: Inf\tHP:%.0f" w.name hp
+                        | Endless -> sprintf "HP:%.0f\tAmmo: Inf" hp
                         | Limited ammoInfo -> 
                             let rld = 
                                 if ammoInfo.startReloadTime |> Option.isSome then " (reloading ...)"
                                 else ""
-                            sprintf "Weapon: %s\tAmmo: %i/%i%s\tHP:%.0f" w.name ammoInfo.availableShots ammoInfo.maxShots rld hp
+                            sprintf "HP:%.0f\tAmmo: %i/%i%s" hp ammoInfo.availableShots ammoInfo.maxShots rld 
                     )
 
                 Text.weaponTextSg env.Window text

@@ -115,12 +115,14 @@ type NetworkCommand =
     | Hit of playerName : string * damage : float
     | Died of byPlayer : string
     | Stats
+    | SpawnShotTrails of list<Line3d * float * float>
 
 
 [<RequireQualifiedAccess>]
 type NetworkMessage =
     | Stats of Map<string, int>
     | UpdatePosition of playerName : string * pos : V3d
+    | SpawnShotTrails of list<Line3d * float * float>
     | Connected of playerName : string
     | Disconnected of playerName : string
     | Died of playerName : string
@@ -135,6 +137,12 @@ module NetworkMessage =
         match msg with
         | NetworkMessage.Stats s ->
             s |> Seq.map (fun (KeyValue(n, cnt)) -> sprintf "%s:%d" n cnt) |> String.concat "," |> sprintf "#stats %s"
+        | NetworkMessage.SpawnShotTrails trails -> 
+            sprintf 
+                "#spawntrails %s" 
+                    (trails |> List.map (fun (l,s,d) -> 
+                        sprintf "%f:%f:%f:%f:%f:%f:%f:%f" l.P0.X l.P0.Y l.P0.Z l.P1.X l.P1.Y l.P1.Z s d
+                    ) |> String.concat ",") 
         | NetworkMessage.UpdatePosition(n, p) ->
             sprintf "#update %s,%f,%f,%f" n p.X p.Y p.Z
         | NetworkMessage.Connected(n) ->
@@ -170,6 +178,16 @@ module NetworkMessage =
                             (arr.[0], int arr.[1])
                         ) |> Map.ofArray
                     NetworkMessage.Stats stats |> Some
+                | "spawntrails" -> 
+                    let trails = 
+                        data |> Array.map (fun d -> 
+                            let fs = d.Split(':') |> Array.map float
+                            let l = Line3d(V3d(fs.[0],fs.[1],fs.[2]),V3d(fs.[3],fs.[4],fs.[5]))
+                            let s = fs.[6]
+                            let d = fs.[7]
+                            l,s,d
+                        ) |> Array.toList
+                    NetworkMessage.SpawnShotTrails trails |> Some
                 | cmd ->
                     printfn "BAD MSG: %A" cmd
                     None
@@ -189,19 +207,34 @@ module NetworkCommand =
         | NetworkCommand.Died cause -> sprintf "#died %s" cause
         | NetworkCommand.UpdatePosition p -> sprintf "#update %f,%f,%f" p.X p.Y p.Z
         | NetworkCommand.Hit(p, d) -> sprintf "#hit %s,%f" p d
-        
+        | NetworkCommand.SpawnShotTrails trails -> 
+            sprintf 
+                "#spawntrails %s" 
+                    (trails |> List.map (fun (l,s,d) -> 
+                        sprintf "%f:%f:%f:%f:%f:%f:%f:%f" l.P0.X l.P0.Y l.P0.Z l.P1.X l.P1.Y l.P1.Z s d
+                    ) |> String.concat ",") 
     let unpickle (str : string) =
         try
             let m = rx.Match str
             if m.Success then
                 let cmd = m.Groups.[1].Value
-                let data = m.Groups.[2].Value.Split(',')
+                let data = m.Groups.[2].Value.Split(',',StringSplitOptions.RemoveEmptyEntries)
                 match cmd with
                 | "connect" -> NetworkCommand.Connect data.[0] |> Some
                 | "stats" -> NetworkCommand.Stats |> Some
                 | "died" -> NetworkCommand.Died data.[0] |> Some
                 | "update" -> NetworkCommand.UpdatePosition(V3d(float data.[0], float data.[1], float data.[2]))|> Some
                 | "hit" -> NetworkCommand.Hit(data.[0], float data.[1]) |> Some
+                | "spawntrails" -> 
+                    let trails = 
+                        data |> Array.map (fun d -> 
+                            let fs = d.Split(':') |> Array.map float
+                            let l = Line3d(V3d(fs.[0],fs.[1],fs.[2]),V3d(fs.[3],fs.[4],fs.[5]))
+                            let s = fs.[6]
+                            let d = fs.[7]
+                            l,s,d
+                        ) |> Array.toList
+                    Some (NetworkCommand.SpawnShotTrails trails)
                 | _ -> 
                     printfn "BAD CMD: %A" cmd
                     None
@@ -304,6 +337,8 @@ module NetworkGroup =
                                                 | NetworkCommand.Stats ->
                                                     let s = frags |> Seq.map (fun (KeyValue(name, cnt)) -> name,cnt) |> Map.ofSeq
                                                     send w (NetworkMessage.Stats s)
+                                                | NetworkCommand.SpawnShotTrails trails ->
+                                                    broadcast (NetworkMessage.SpawnShotTrails trails)
 
                                             | None ->
                                                 ()
