@@ -29,6 +29,7 @@ type AmmunitionType =
 type WeaponType =
     | Primary
     | Secondary
+    | Tertiary
 
 type TrailInfo = 
     {
@@ -169,7 +170,7 @@ module Weapon =
             [Ray3d(p, d)]
         let createShottrails (range : float) (rays : list<Ray3d>) (cv : CameraView) time =
             rays |> List.map(fun shotRay ->
-                let p0 = shotRay.Origin + cv.Right * 0.7 + cv.Down * 0.4
+                let p0 = shotRay.Origin + cv.Right * 0.7 + cv.Down * 0.3 + cv.Forward * 1.0
                 
                 let p1 = shotRay.Origin + range * shotRay.Direction
                 let line = Line3d(p0, p1)
@@ -219,7 +220,7 @@ module Weapon =
             reload              = reload
             startReload         = startReload
             lastShotTime        = None
-            waitTimeBetweenShots = 0.125
+            waitTimeBetweenShots = 0.2
         }
 
     let shotGun : Weapon =
@@ -236,7 +237,7 @@ module Weapon =
             )
         let createShottrails (range : float) (rays : list<Ray3d>) (cv : CameraView) time =
             rays |> List.map(fun shotRay ->
-                let p0 = shotRay.Origin + cv.Right * 0.3 + cv.Down * 0.15 + cv.Forward * 0.8
+                let p0 = shotRay.Origin + cv.Right * 0.3 + cv.Down * 0.15 + cv.Forward * 0.6
                 
                 let p1 = shotRay.Origin + range * shotRay.Direction
                 let line = Line3d(p0, p1)
@@ -287,8 +288,75 @@ module Weapon =
             reload              = reload
             startReload         = startReload
             lastShotTime        = None
-            waitTimeBetweenShots = 0.25
+            waitTimeBetweenShots = 0.2
         }
+
+    let sniper : Weapon =
+            let damage = Range1d(75, 85)
+            let createHitrays (cv : CameraView) : list<Ray3d> = 
+                let p = cv.Location
+                let d = cv.Forward
+                [Ray3d(p, d)]
+            let createShottrails (range : float) (rays : list<Ray3d>) (cv : CameraView) time =
+                rays |> List.map(fun shotRay ->
+                    let p0 = shotRay.Origin + cv.Right * 0.7 + cv.Down * 0.4 + cv.Forward * 1.0
+                
+                    let p1 = shotRay.Origin + range * shotRay.Direction
+                    let line = Line3d(p0, p1)
+                    {
+                        Line = line
+                        startTime = time
+                        duration = 1.0
+                    }
+                )
+            let calculateDamage (hitCount : int) : int =                        
+                List.init hitCount (fun _ -> 
+                    let t = rand.UniformDouble()
+                    damage.Lerp t
+                )
+                |> List.sum
+                |> int
+
+            let processHits (names : list<string>) (targets : HashMap<string, Target>) : HashMap<string, Target> =
+                let processed = 
+                    names 
+                    |> List.groupBy id
+                    |> List.map (fun (s,ss) -> 
+                        let hitCount = ss |> List.length
+                        targets
+                        |> HashMap.alter s (fun altV -> 
+                            match altV with
+                            | None -> None
+                            | Some target -> 
+                                let newHp =  target.currentHp - (calculateDamage hitCount)
+                                Some {target with currentHp = int newHp}
+                        )
+                    )
+                (processed |> HashMap.unionMany)
+
+            {
+                damage               = damage
+                name                 = "Sniper"
+                cooldown             = 0.0
+                ammo                 = Limited {
+                                                 reloadTime      = 1.25
+                                                 maxShots        = 1
+                                                 availableShots  = 1
+                                                 startReloadTime = None
+                                               }
+                range               = 100.0
+                canShoot            = canShoot
+                createHitrays       = createHitrays
+                createShottrails    = createShottrails
+                findHitTargets      = findHitTargets
+                processHits         = processHits
+                updateAmmo          = updateAmmo
+                calculateDamage     = calculateDamage
+                reload              = reload
+                startReload         = startReload
+                lastShotTime        = None
+                waitTimeBetweenShots = 0.0
+            }
         
 
     let scene 
@@ -362,18 +430,25 @@ module Weapon =
                     Trafo3d.Scale(1.0,1.0,-1.0) *
                     Trafo3d.Scale(0.18) *
                     Trafo3d.Translation(1.5,-1.0,-1.8)
+                | Tertiary ->
+                    Trafo3d.Scale(1.0,1.0,1.0) *
+                    Trafo3d.Scale(0.3) *
+                    Trafo3d.Translation(1.5,-1.0,-2.0)
                     
             )
 
         let lg =
             Import.importGun("gun") 
         let sg = 
-            Import.importGun("shotgun") 
+            Import.importGun("shotgun")
+        let sn =
+            Import.importGun("sniper")
         let task =  
             activeWeapon
             |> AVal.map (function 
                 | Primary -> lg
                 | Secondary -> sg
+                | Tertiary -> sn
             )
             |> Sg.dynamic
             |> Sg.trafo gunMotionTrafo
