@@ -16,12 +16,12 @@ module Game =
 
     let intitial (env : Environment<Message>) = 
         
-        //let world = World.randomGenerated 0 (V2i(150,150)) 1.75
-        let world = 
-            let textures = @"C:\Users\Schorsch\Desktop\mc"
-            let map = @"C:\Users\Schorsch\Desktop\Small Worlds"
-            let atlas, tree = MinecraftWorld.load env.Runtime textures map
-            World.minecraft env.Window atlas tree 1.75
+        let world = World.randomGenerated 0 (V2i(150,150)) 1.75
+        //let world = 
+        //    let textures = @"C:\Users\Schorsch\Desktop\mc"
+        //    let map = @"C:\Users\Schorsch\Desktop\Small Worlds"
+        //    let atlas, tree = MinecraftWorld.load env.Runtime textures map
+        //    World.minecraft env.Window atlas tree 1.75
 
         let center = world.Bounds.Center.XYO + world.Bounds.Max.OOZ + V3d(0.1, 0.2, 0.4)
         
