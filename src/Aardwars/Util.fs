@@ -315,6 +315,7 @@ module NetworkGroup =
         let received = EventSource<NetworkMessage>()
         async {
             let c = new TcpClient()
+            c.NoDelay <- true
             do! Async.SwitchToThreadPool()
             do! c.ConnectAsync(server, port) |> Async.AwaitTask
             let s = c.GetStream()
