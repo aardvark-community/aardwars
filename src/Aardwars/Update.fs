@@ -63,6 +63,10 @@ module Update =
             env.Emit [ MouseDown b ]
         )
 
+        win.Mouse.Up.Values.Add(fun b -> 
+            env.Emit [ MouseUp b ]
+        )
+        
         let sw = System.Diagnostics.Stopwatch.StartNew()
         let mutable last = sw.Elapsed.TotalSeconds
         let timer = 
@@ -100,7 +104,7 @@ module Update =
                     camera = 
                         { newModel.camera with 
                             velocity = 
-                                let vn = Fun.Lerp(0.05, newModel.camera.velocity, newModel.camera.move)
+                                let vn = Fun.Lerp(0.025, newModel.camera.velocity, newModel.camera.move)
                                 V3d(vn.X,vn.Y,newModel.camera.move.Z)
                         } 
                 }
@@ -137,7 +141,6 @@ module Update =
             else
                 { model with hp = hp }
 
-
         | UpdatePlayerPos(player, pos) ->
             { model with otherPlayers = HashMap.alter player (function Some o -> Some {o with pos=pos} | None -> Some {pos=pos;frags=0}) model.otherPlayers }
 
@@ -166,22 +169,22 @@ module Update =
             let newCameraView = model.camera.camera.WithLocation(respawnLocation)
             let modelCamera = { model.camera with camera = newCameraView  }
             { model with camera = modelCamera }
-        | KeyDown Keys.O -> 
-            let n = model.moveSpeed + 0.1
-            printfn "moveSpeed %.2f" n
-            { model with moveSpeed = n }
-        | KeyDown Keys.P -> 
-            let n = model.moveSpeed - 0.1
-            printfn "moveSpeed %.2f" n
-            { model with moveSpeed = n }
-        | KeyDown Keys.U -> 
-            let n = model.airAccel + 0.00005
-            printfn "airAccel %f" n
-            { model with airAccel = n }
-        | KeyDown Keys.I -> 
-            let n = model.airAccel - 0.00005
-            printfn "airAccel %f" n
-            { model with airAccel = n }
+        //| KeyDown Keys.O -> 
+        //    let n = model.moveSpeed + 0.1
+        //    printfn "moveSpeed %.2f" n
+        //    { model with moveSpeed = n }
+        //| KeyDown Keys.P -> 
+        //    let n = model.moveSpeed - 0.1
+        //    printfn "moveSpeed %.2f" n
+        //    { model with moveSpeed = n }
+        //| KeyDown Keys.U -> 
+        //    let n = model.airAccel + 0.00005
+        //    printfn "airAccel %f" n
+        //    { model with airAccel = n }
+        //| KeyDown Keys.I -> 
+        //    let n = model.airAccel - 0.00005
+        //    printfn "airAccel %f" n
+        //    { model with airAccel = n }
         | Resize s -> 
             { model with 
                 size = s
@@ -258,18 +261,28 @@ module Update =
                         }
                 }
         | UpdateAnimationState s -> {model with gunAnimationState=s}
-        | KeyDown _ 
-        | KeyUp _ 
-        | MouseUp _ -> 
-            model
+        | KeyDown _ -> model
+        | KeyUp _ -> model
+        | MouseUp button ->
+            match button with
+            |MouseButtons.Left -> model
+            |MouseButtons.Right -> {model with proj = Frustum.perspective 110.0 0.1 1000.0 (float model.size.X / float model.size.Y)  }
+            | _ -> model
         | MouseDown button -> 
             match button with
-                | MouseButtons.Left -> 
-                    let messages = [Shoot]
-                    env.Emit messages
-                    model
-                | MouseButtons.Right -> model
+            | MouseButtons.Left -> 
+                let messages = [Shoot]
+                env.Emit messages
+                model
+            | MouseButtons.Right -> 
+                let weapon = model.weapons.Item model.activeWeapon
+                match weapon.name with
+                | "Lasergun" -> model
+                | "Shotgun" -> model
+                | "Sniper" ->
+                    {model with proj = Frustum.perspective 30.0 0.1 1000.0 (float model.size.X / float model.size.Y)}
                 | _ -> model
+            | _ -> model
         | SpawnShotTrails trails -> 
             let nts = HashSet.union (HashSet.ofList trails) model.shotTrails
             {model with shotTrails = nts}

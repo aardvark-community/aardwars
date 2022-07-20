@@ -6,8 +6,8 @@ open Aardvark.Rendering
 open Aardvark.SceneGraph
 open Aardvark.Application
 open Aardvark.Rendering.Text
-open Aardvark.SceneGraph.IO
 open System
+open Aardvark.SceneGraph.IO
 open System.Reflection
 open System.Text
 open System.Text.RegularExpressions
