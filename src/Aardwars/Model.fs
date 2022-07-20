@@ -76,6 +76,14 @@ module AnimationState =
             lastFw = V3d.Zero
         } 
 
+type HitAnimation =
+    {
+        position    : V3d
+        startTime   : float
+        duration    : float
+        color       : C4b
+    }
+
 
 [<ModelType>]
 type Model =
@@ -97,6 +105,9 @@ type Model =
         gunAnimationState   : AnimationState
         otherPlayers        : HashMap<string, OtherPlayerInfo>
         hp                  : float
+
+        hitAnimations       : HashSet<HitAnimation>
+
     }
 
 

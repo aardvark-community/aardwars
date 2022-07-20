@@ -110,8 +110,40 @@ module Block =
 
 type OctRenderNode(level : int, root : option<ILodTreeNode>, parent : option<ILodTreeNode>, node : OctNode<BoxInfo>) as this =
     static let geometry =
-        let g = IndexedGeometryPrimitives.Box.solidBox Box3d.Unit C4b.White
-        g.Flat
+
+        let pos =
+            [|
+                V3f.OOO; V3f.IIO; V3f.IOO; V3f.OOO; V3f.OIO; V3f.IIO // -z
+                V3f.OOI; V3f.IOI; V3f.III; V3f.OOI; V3f.III; V3f.OII // +z
+
+                V3f.OOO; V3f.IOO; V3f.IOI; V3f.OOO; V3f.IOI; V3f.OOI // -y
+                V3f.OIO; V3f.III; V3f.IIO; V3f.OIO; V3f.OII; V3f.III // +y
+                
+                V3f.OOO; V3f.OII; V3f.OIO; V3f.OOO; V3f.OOI; V3f.OII // -x
+                V3f.IOO; V3f.IIO; V3f.III; V3f.IOO; V3f.III; V3f.IOI // +x
+            |]
+
+        let ns =
+            [|
+                V3f.OON; V3f.OON; V3f.OON; V3f.OON; V3f.OON; V3f.OON
+                V3f.OOI; V3f.OOI; V3f.OOI; V3f.OOI; V3f.OOI; V3f.OOI
+                
+                V3f.ONO; V3f.ONO; V3f.ONO; V3f.ONO; V3f.ONO; V3f.ONO
+                V3f.OIO; V3f.OIO; V3f.OIO; V3f.OIO; V3f.OIO; V3f.OIO
+
+                V3f.NOO; V3f.NOO; V3f.NOO; V3f.NOO; V3f.NOO; V3f.NOO
+                V3f.IOO; V3f.IOO; V3f.IOO; V3f.IOO; V3f.IOO; V3f.IOO
+            |]
+
+
+        IndexedGeometry(
+            Mode = IndexedGeometryMode.TriangleList,
+            IndexedAttributes =
+                SymDict.ofList [
+                    DefaultSemantic.Positions, pos :> System.Array
+                    DefaultSemantic.Normals, ns :> System.Array
+                ]
+        )
 
     static let crossGeometry =
         let pos =
@@ -168,6 +200,17 @@ type OctRenderNode(level : int, root : option<ILodTreeNode>, parent : option<ILo
         | Leaf(_,b,_,_) -> b
         | Node(_,b,_,_) -> b
 
+    let totalDataSize =
+        match node with
+        | Empty -> 0
+        | Leaf(_,_,c,_) -> c
+        | Node(_,_,c,_) -> c
+    let bb =
+        match node with
+        | Empty -> Box3d.Invalid
+        | Leaf(_,b,_,_) -> b
+        | Node(_,b,_,_) -> b
+
     let equivalentAngle60 (view : Trafo3d) (proj : Trafo3d) =
 
         let cam = view.Backward.C3.XYZ
@@ -183,14 +226,21 @@ type OctRenderNode(level : int, root : option<ILodTreeNode>, parent : option<ILo
 
         60.0 * angle / fov 
 
+    let dataSize =
+        match node with
+        | Empty -> 0
+        | Leaf(_,_,c,_) -> c
+        | Node _ -> 1
+
+    let cell =
+        match node with
+        | Empty -> Cell.Unit
+        | Leaf(c,_,_,_) -> c
+        | Node(c,_,_,_) -> c
+
     interface ILodTreeNode with
         member this.Acquire() = ()
-        member this.Cell =
-            match node with
-            | Empty -> Cell.Unit
-            | Leaf(c,_,_,_) -> c
-            | Node(c,_,_,_) -> c
-
+        member this.Cell = cell
         member this.Children = children.Value :> seq<_>
 
         member x.ShouldSplit (splitfactor : float, quality : float, view : Trafo3d, proj : Trafo3d) =
@@ -249,11 +299,7 @@ type OctRenderNode(level : int, root : option<ILodTreeNode>, parent : option<ILo
             | Some root -> root
             | None -> this
 
-        member this.DataSize =
-            match node with
-            | Empty -> 0
-            | Leaf(_,_,c,_) -> c
-            | Node _ -> 1
+        member this.DataSize = dataSize
 
         member this.DataSource = DefaultSemantic.CreaseAngle
         member this.DataTrafo = Trafo3d.Identity
@@ -261,21 +307,9 @@ type OctRenderNode(level : int, root : option<ILodTreeNode>, parent : option<ILo
         member this.Level = level
         member this.Name = "Hans"
         member this.Release() = ()
-        member this.TotalDataSize = 
-            match node with
-            | Empty -> 0
-            | Leaf(_,_,c,_) -> c
-            | Node(_,_,c,_) -> c
-        member this.WorldBoundingBox = 
-            match node with
-            | Empty -> Box3d.Invalid
-            | Leaf(_,b,_,_) -> b
-            | Node(_,b,_,_) -> b
-        member this.WorldCellBoundingBox = 
-            match node with
-            | Empty -> Box3d.Invalid
-            | Leaf(_,b,_,_) -> b
-            | Node(_,b,_,_) -> b
+        member this.TotalDataSize = totalDataSize
+        member this.WorldBoundingBox = bb
+        member this.WorldCellBoundingBox = bb
 
     new(node : OctNode<BoxInfo>) =
         OctRenderNode(0, None, None, node)
