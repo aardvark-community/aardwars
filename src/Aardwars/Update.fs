@@ -22,6 +22,7 @@ type Message =
     | Shoot
     | UpdatePlayerPos of string * V3d
     | HitBy of string * float
+    | UpdateStats of Map<string,int>
 
 module Update =
     let rand = RandomSystem()
@@ -40,6 +41,8 @@ module Update =
                 env.Emit [UpdatePlayerPos(player, pos)]
             | NetworkMessage.Hit(player, dmg) ->
                 env.Emit [HitBy(player, dmg)]
+            | NetworkMessage.Stats s ->
+                env.Emit [UpdateStats s]
             | _ ->
                 printfn "%A" msg
         )   
@@ -138,6 +141,7 @@ module Update =
 
         | UpdatePlayerPos(player, pos) ->
             { model with otherPlayers = HashMap.add player {pos=pos} model.otherPlayers }
+            { model with otherPlayers = HashMap.alter player (function Some o -> Some {o with pos=pos} | None -> Some {pos=pos;frags=0}) model.otherPlayers }
 
         | MouseMove delta -> model |> cam (CameraMessage.Look delta)
         | KeyDown Keys.W -> model |> cam (CameraMessage.StartMove (V3d(0.0, model.moveSpeed, 0.0)))
@@ -185,6 +189,10 @@ module Update =
                 size = s
                 proj = Frustum.perspective 110.0 0.1 1000.0 (float s.X / float s.Y) 
             }
+        | UpdateStats s -> 
+            let myNewFrags = s |> Map.tryFind model.playerName |> Option.defaultValue 0
+            let newOthers = (model.otherPlayers, s) ||> Map.fold (fun others name f -> others |> HashMap.update name (function Some o -> {o with frags=f}|None -> {pos=V3d.NaN;frags=f}))
+            {model with frags=myNewFrags; otherPlayers=newOthers}
         | UpdateTime(t, dt) ->
             let model = model |> cam (CameraMessage.UpdateTime(t, dt))
             let newTrailSet = 
@@ -301,15 +309,12 @@ module Update =
                     floorHits |> List.map (fun p ->
                         {
                             position = p
-                            color = C4b.White
+                            color = C4b.Wheat
                             startTime = model.time
                             duration = 1.0
                         }
-
                     )
                     |> HashSet.ofList
-
-
 
                 hitPlayers
                 |> List.groupBy fst 
@@ -337,8 +342,6 @@ module Update =
                     |> HashMap.filter (fun _ t -> t.currentHp > 0)
                 let updatedWeapon = {weapon with ammo = weapon.updateAmmo weapon.ammo; lastShotTime = Some model.time }
                 
-
-
                 { model with
                     targets = updatedTargets
                     weapons = model.weapons |> HashMap.add model.activeWeapon updatedWeapon

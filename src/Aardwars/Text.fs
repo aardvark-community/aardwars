@@ -8,6 +8,67 @@ open Aardvark.Application
 open Aardvark.Rendering.Text
 
 module Text = 
+    let scoreboard (win : IRenderWindow) (myFrags : aval<int>) (myName : aval<string>) (others : amap<string,OtherPlayerInfo>) =
+        let textProj =
+            win.Sizes |> AVal.map (fun s ->
+                Trafo3d.Scale(float s.Y / float s.X, 1.0, 1.0)
+            )
+                        
+        let font = FontSquirrel.Hack.Regular
+
+        let playerStats =
+            let text = 
+                AVal.custom (fun tok -> 
+                    let os = others.Content.GetValue(tok)
+                    let myfrags = myFrags.GetValue(tok)
+                    let myName = myName.GetValue tok
+                    let res = 
+                        os 
+                        |> HashMap.map (fun n o -> o.frags)
+                        |> HashMap.add myName myfrags
+                        |> Seq.sortByDescending snd
+                        |> Seq.toArray
+                    let longest = res |> Array.map (fst >> String.length) |> Array.max
+                    res |> Array.map (fun (n,f) -> 
+                        let n = n+System.String(' ',longest-n.Length)
+                        sprintf "%s %d" n f
+                    ) |> String.concat "\n"
+                )
+            let shape = text |> AVal.map (fun t -> font.Layout(C4b.White, t))
+
+            let trafo = 
+                (win.Sizes, shape) ||> AVal.map2 (fun s shape ->
+                   
+                    let scale = 20.0 / float s.Y * 2.0
+                    let bounds = Box2d(shape.bounds.Min * scale, shape.bounds.Max * scale)
+                    
+                    let minX = -float s.X / float s.Y // left
+                    let maxX = (float s.X / float s.Y) - bounds.Max.X // right
+                    let rangeX = maxX - minX
+
+                    let minY =  1.0 - bounds.Max.Y // top
+                    let maxY = -1.0 + bounds.Max.Y // bottom
+                    let rangeY = maxY - minY
+                 
+                    let x = minX 
+                    let y = minY - scale 
+
+                    Trafo3d.Scale(scale) *
+                    Trafo3d.Translation(x, y, -1.0)
+                )
+                
+            Sg.shape shape
+            |> Sg.trafo trafo
+
+        playerStats
+        |> Sg.viewTrafo (AVal.constant Trafo3d.Identity)
+        |> Sg.projTrafo textProj
+        |> Sg.pass Elm.Passes.pass2
+        |> Sg.depthTest' DepthTest.None
+        |> Sg.blendMode' BlendMode.Blend
+
+        
+
 
     let weaponTextSg (win : IRenderWindow) (text : aval<string>) =
     

@@ -151,7 +151,7 @@ module NetworkMessage =
             let m = rx.Match str
             if m.Success then
                 let cmd = m.Groups.[1].Value
-                let data = m.Groups.[2].Value.Split(',')
+                let data = m.Groups.[2].Value.Split(',',StringSplitOptions.RemoveEmptyEntries)
                 match cmd with
                 | "update" ->
                     NetworkMessage.UpdatePosition(data.[0], V3d(float data.[1], float data.[2], float data.[3])) |> Some
@@ -233,6 +233,20 @@ module NetworkGroup =
         let run =   
             async {
                 do! Async.SwitchToThreadPool()
+                let pingTask = 
+                    async {
+                        while true do 
+                            do! Async.Sleep 100
+                            for KeyValue(name, c) in clients do
+                                let s = frags |> Seq.map (fun (KeyValue(name, cnt)) -> name,cnt) |> Map.ofSeq
+                                lock c (fun _ -> 
+                                    try 
+                                        c.WriteLine (NetworkMessage.pickle (NetworkMessage.Stats s))
+                                    with e -> 
+                                        ()
+                                )
+
+                    } |> Async.StartAsTask
                 while true do
                     let! c = listener.AcceptTcpClientAsync() |> Async.AwaitTask
                     //c.NoDelay <- true
