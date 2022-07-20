@@ -19,7 +19,7 @@ module Game =
         //let world = World.randomGenerated 0 (V2i(150,150)) 1.75
         let world = 
             let textures = @"C:\minecraft\textures"
-            let map = @"C:\minecraft\Small Worlds"
+            let map = @"C:\minecraft\Jakobs_KitPvP\Jakobs KitPvP"
             let atlas, tree = MinecraftWorld.load env.Runtime textures map
             World.minecraft env.Window atlas tree 1.75
 
