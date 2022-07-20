@@ -55,6 +55,7 @@ type LastHitInfo =
 type OtherPlayerInfo =
     {
         pos : V3d
+        frags : int
     }
 [<AutoOpen>]
 module PlayerConstant =

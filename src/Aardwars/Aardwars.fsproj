@@ -63,7 +63,6 @@
     <EmbeddedResource Include="CubeMap\miramar_up.png" />
     <Compile Include="Util.fs" />
     <Compile Include="Importer.fs" />
-	  <Compile Include="Text.fs" />
 	  <Compile Include="CollisionDetection.fs" />
 	  <Compile Include="LodRenderer.fs" />
 	  <Compile Include="Shaders.fs" />
@@ -72,6 +71,7 @@
 	  <Compile Include="World.fs" />
 	  <Compile Include="Gun.fs" />
 	  <Compile Include="Model.fs" />
+	  <Compile Include="Text.fs" />
 	  <Compile Include="Camera.fs" />
 	  <Compile Include="Skybox.fs" />
 	  <Compile Include="TrailsSg.fs" />

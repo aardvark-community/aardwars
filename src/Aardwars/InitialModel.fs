@@ -64,6 +64,8 @@ module Game =
             otherPlayers = HashMap.empty
             hp = 100.0
             hitAnimations = HashSet.empty
+            playerName = System.Environment.MachineName
+            frags = 0
         }
 
     let view (client : NetworkClient) (env : Environment<Message>) (model : AdaptiveModel) =
@@ -73,16 +75,23 @@ module Game =
 
         let hits =
             let rand = RandomSystem()
-            let cnt = 100
+            let cnt = 50
+            let rps = 10.0
+            let r = 0.0025
+            let vel = 
+                let w = Constant.PiTimesTwo * rps
+                w*r
             let trafos = 
                 model.hitAnimations |> ASet.mapA (fun hit ->
 
                     let arr = 
                         Array.init cnt (fun _ ->
-                            let angularMomentum = rand.UniformV3dDirection() *  rand.UniformDouble()
-                            let momentum = rand.UniformV3dDirection() * 3.5 * rand.UniformDouble()
+                            let w = rand.UniformV3dDirection() *  rand.UniformDouble()
+                            let v = rand.UniformV3dDirection() * 20.5 * rand.UniformDouble()
                             let rot = rand.UniformV3dDirection() * rand.UniformDouble() * Constant.PiTimesTwo |> Rot3d.FromAngleAxis
-                            (hit.position, rot, momentum, angularMomentum)
+                            
+
+                            (hit.position, rot, v, w)
                         )
 
                     let res = 
@@ -92,8 +101,9 @@ module Game =
                             sw.Restart()
                             thing |> Array.map (fun (p : V3d, r : Rot3d, v : V3d, w : V3d) ->
                                 let np = p + v*dt
-                                let nr = r * Rot3d.FromAngleAxis(w * dt)
-                                let a = 1.75 * v.Length * -v
+                                let nr = r
+
+                                let a = -v*v.Length * 6.0 - (p-hit.position) * 19.81 
                                 let nv = v + a*dt
                                 (np, nr, nv, w)
                             )
@@ -101,18 +111,26 @@ module Game =
                         |> AVal.constant 
                         |> List.singleton 
                         |> AVal.integrate arr env.Window.Time
-
-                    res |> AVal.map (Array.map (fun (p,r,_,_) ->
-                        Trafo3d r * Trafo3d.Translation p
+                    
+                    res |> AVal.map (Array.map (fun (p,r,v,_) ->
+                        let c = hit.color
+                        (Trafo3d r * Trafo3d.Translation p), c
                     ))
 
                 ) |> ASet.toAVal |> AVal.map Array.concat
 
+            let things = 
+                let res = trafos |> AVal.map Array.unzip
+                Map.ofList [
+                    "ModelTrafo", (typeof<Trafo3d>,res |> AVal.map (fst >> unbox))
+                    "Color", (typeof<C4b>,res |> AVal.map (snd >> unbox))
+                ]
             Sg.box' C4b.White (Box3d.FromCenterAndSize(V3d.Zero, V3d.III * 0.025))
-            |> Sg.instanced trafos
+            |> Sg.instanced' things
             |> Sg.shader {
                 do! DefaultSurfaces.trafo
-                do! DefaultSurfaces.simpleLighting
+                do! DefaultSurfaces.sgColor
+                //do! DefaultSurfaces.simpleLighting
             }
 
         let gunSg = 
@@ -157,7 +175,7 @@ module Game =
 
                 Text.weaponTextSg env.Window text
 
-            [ velocitySg; statsSg ] |> Sg.ofList
+            [ velocitySg; statsSg; Text.scoreboard env.Window model.frags model.playerName model.otherPlayers ] |> Sg.ofList
                 
         let trailsSg = Trails.sg model.shotTrails model.time |> Sg.pass Passes.pass1
             
