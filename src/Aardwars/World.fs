@@ -12,7 +12,7 @@ type World =
     {
         Bounds : Box3d
         Hit : V3d -> V3d -> V3d * bool
-        Intersections : Ray3d -> seq<float * BoxInfo>
+        Intersections : Ray3d -> float -> float -> seq<float * BoxInfo>
         Scene : IRenderWindow -> ISg
     }
 
@@ -85,7 +85,7 @@ module World =
         {
             Hit = hit
             Scene = fun _ -> sg
-            Intersections = fun _ -> Seq.empty
+            Intersections = fun _ _ _ -> Seq.empty
             Bounds = Box3d.FromCenterAndSize(V3d.Zero, V3d(200.0, 200.0, 1.0))
         }
 
@@ -115,7 +115,7 @@ module World =
             newP1,onFloor
         {
             Hit = hit
-            Intersections = fun _ -> Seq.empty
+            Intersections = fun _ _ _ -> Seq.empty
             Scene = fun _ -> sg
             Bounds = Box3d worldBoxes
         }
@@ -303,10 +303,10 @@ module World =
                 do! Shader.foggy
             }   
             |> Sg.texture' "Atlas" tex
-            //|> Sg.cullMode' CullMode.Back
+            |> Sg.cullMode' CullMode.Back
         {
             Hit = hit
-            Intersections = fun r -> Octree.rayIntersections r 0.0 System.Double.PositiveInfinity tree
+            Intersections = fun r tmin tmax -> Octree.rayIntersections r tmin tmax tree
             Scene = fun _ -> sg
             Bounds = tree.BoundingBox
         }

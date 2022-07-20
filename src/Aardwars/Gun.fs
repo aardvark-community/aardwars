@@ -71,7 +71,7 @@ type Weapon =
         canShoot         : AmmunitionType -> Option<float> -> float -> float -> bool
         createHitrays    : CameraView -> list<Ray3d>
         createShottrails : float -> list<Ray3d> -> CameraView -> float -> list<TrailInfo>
-        findHitTargets   : float -> list<Ray3d> -> HashMap<string, Target> -> HashMap<string, OtherPlayerInfo> ->  CameraView -> list<string> * list<string>
+        //findHitTargets   : float -> list<Ray3d> -> HashMap<string, Target> -> HashMap<string, OtherPlayerInfo> ->  CameraView -> list<string> * list<string>
         processHits      : list<string> -> HashMap<string, Target> -> HashMap<string, Target>
         calculateDamage  : int -> int
         updateAmmo       : AmmunitionType -> AmmunitionType
@@ -127,9 +127,22 @@ module Weapon =
     
 
 
-    let findHitTargets (range : float) (rays : list<Ray3d>)(targets : HashMap<string, Target>) (otherPlayers : HashMap<string, OtherPlayerInfo>) (cv : CameraView) =
+    let findHitTargets (range : float) (rays : list<Ray3d>) (world : World) (targets : HashMap<string, Target>) (otherPlayers : HashMap<string, OtherPlayerInfo>) (cv : CameraView) =
+        
+        let mutable floorHits = []
+
+        let rays =
+            rays |> List.map (fun r ->
+                match world.Intersections r 0.0 range |> Seq.tryHead with
+                | Some (t,_) -> 
+                    floorHits <- r.GetPointOnRay t :: floorHits
+                    (r, min t range)
+                | _ -> (r, range)
+            )
+
+        
         let hitTargets =
-            rays |> List.choose(fun shotRay -> 
+            rays |> List.choose(fun (shotRay, range) -> 
                 targets 
                 |> HashMap.choose (fun name t -> 
                     let d0 = t.pos -  cv.Location
@@ -139,28 +152,29 @@ module Weapon =
                     let isHit = shotRay.HitsSphere(t.pos,t.radius,&tout)
                     let isHit = isHit && tout <= range
                     match isHit && inFront with
-                    |true -> Some tout
+                    |true -> Some (tout,shotRay.GetPointOnRay tout)
                     |false -> None
                 ) 
                 |> HashMap.toList
-                |> List.sortBy snd
+                |> List.sortBy (fun (_,(t,_)) -> t)
                 |> List.tryHead
-                |> Option.map fst
+                |> Option.map (fun (name,(_,p)) -> name,p)
             )
+
         let hitPlayers =
-            rays |> List.choose(fun shotRay -> 
+            rays |> List.choose(fun (shotRay, range) -> 
                 otherPlayers |> HashMap.toList |> List.choose (fun (name,info) ->
                     let pos = info.pos
                     let b = playerBounds.Translated(pos)
                     let mutable t = 0.0
-                    if b.Intersects(shotRay, &t) && t >= 0.0 && t <= range then Some (name,t)
+                    if b.Intersects(shotRay, &t) && t >= 0.0 && t <= range then Some (name,t,shotRay.GetPointOnRay t)
                     else None
                 )
-                |> List.sortBy snd
+                |> List.sortBy (fun (_,t,_) -> t)
                 |> List.tryHead
-                |> Option.map fst
+                |> Option.map (fun (n,_,p) -> n,p)
             )
-        hitTargets,hitPlayers
+        hitTargets,hitPlayers,floorHits
 
     let laserGun =
         let damage = Range1d(10,20)
@@ -213,7 +227,6 @@ module Weapon =
             canShoot            = canShoot
             createHitrays       = createHitrays
             createShottrails    = createShottrails
-            findHitTargets      = findHitTargets
             calculateDamage     = calculateDamage
             processHits         = processHits
             updateAmmo          = updateAmmo
@@ -281,7 +294,6 @@ module Weapon =
             canShoot            = canShoot
             createHitrays       = createHitrays
             createShottrails    = createShottrails
-            findHitTargets      = findHitTargets
             processHits         = processHits
             updateAmmo          = updateAmmo
             calculateDamage     = calculateDamage

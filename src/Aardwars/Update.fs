@@ -60,7 +60,7 @@ module Update =
         let sw = System.Diagnostics.Stopwatch.StartNew()
         let mutable last = sw.Elapsed.TotalSeconds
         let timer = 
-            env.StartTimer(4, fun () ->
+            env.StartTimer(16, fun () ->
                 let now = sw.Elapsed.TotalSeconds
                 env.Emit [UpdateTime(now, now - last)]
                 last <- now
@@ -212,10 +212,20 @@ module Update =
             let model = 
                 {model with 
                     gunAnimationState = 
-                    {model.gunAnimationState with
-                        lastFw = model.camera.camera.Forward
-                    }
+                        { model.gunAnimationState with
+                            lastFw = model.camera.camera.Forward
+                        }
                 }
+
+            let model =
+                { model with
+                    hitAnimations = 
+                        model.hitAnimations |> HashSet.filter (fun a ->
+                            let endTime = a.startTime + a.duration
+                            endTime >= t
+                        )
+                }
+
 
             client.send (NetworkCommand.UpdatePosition model.camera.camera.Location)
 
@@ -270,19 +280,42 @@ module Update =
                 let shotTrail = 
                     let newTrails = weapon.createShottrails weapon.range shotRays model.camera.camera model.time
                     HashSet.union (HashSet.ofList newTrails) model.shotTrails
-                let hittedTargets,hitPlayers = weapon.findHitTargets weapon.range shotRays model.targets model.otherPlayers model.camera.camera
+                let hittedTargets,hitPlayers,floorHits = Weapon.findHitTargets weapon.range shotRays model.world model.targets model.otherPlayers model.camera.camera
+
+                let mutable newHits = 
+                    floorHits |> List.map (fun p ->
+                        {
+                            position = p
+                            color = C4b.White
+                            startTime = model.time
+                            duration = 1.0
+                        }
+
+                    )
+                    |> HashSet.ofList
+
+
 
                 hitPlayers
-                |> List.groupBy id 
+                |> List.groupBy fst 
                 |> List.iter (fun (otherPlayerName,count) -> 
                     let hitCount = count |> List.length
                     let dmg = weapon.calculateDamage hitCount
                     if dmg > 0 then
+                        let (_, p) = count |> List.head
+                        let newHit =
+                            {
+                                position = p
+                                color = C4b.Red
+                                startTime = model.time
+                                duration = 1.0
+                            }
+                        newHits <- HashSet.add newHit newHits
                         client.send (NetworkCommand.Hit(otherPlayerName, dmg))
                 )
 
                 let updatedTargets = 
-                    let damaged = weapon.processHits hittedTargets model.targets
+                    let damaged = weapon.processHits (List.map fst hittedTargets) model.targets
                     HashMap.union
                         model.targets
                         damaged
@@ -295,4 +328,5 @@ module Update =
                     targets = updatedTargets
                     weapons = model.weapons |> HashMap.add model.activeWeapon updatedWeapon
                     shotTrails = shotTrail
+                    hitAnimations = HashSet.union model.hitAnimations newHits
                 }

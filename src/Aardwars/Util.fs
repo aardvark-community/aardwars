@@ -235,7 +235,7 @@ module NetworkGroup =
                 do! Async.SwitchToThreadPool()
                 while true do
                     let! c = listener.AcceptTcpClientAsync() |> Async.AwaitTask
-                    c.NoDelay <- true
+                    //c.NoDelay <- true
                     let clientTask = 
                         Async.StartAsTask <|
                             async {
@@ -313,36 +313,33 @@ module NetworkGroup =
     let client (server : string) (port : int) =
         let id = System.Environment.MachineName
         let received = EventSource<NetworkMessage>()
-        async {
-            let c = new TcpClient()
-            c.NoDelay <- true
-            do! Async.SwitchToThreadPool()
-            do! c.ConnectAsync(server, port) |> Async.AwaitTask
-            let s = c.GetStream()
-            let w = new StreamWriter(s)
-            w.AutoFlush <- true
+        let c = new TcpClient()
+        //c.NoDelay <- true
+        do c.Connect(server, port)
+        let s = c.GetStream()
+        let w = new StreamWriter(s)
+        w.AutoFlush <- true
 
-            let send cmd =
+        let send cmd =
+            lock w (fun () ->
                 let str = NetworkCommand.pickle cmd
                 w.WriteLine str
+            )
 
-            send (NetworkCommand.Connect id)
+        send (NetworkCommand.Connect id)
 
-            let receiver =
-                Async.StartAsTask <| 
-                    async {
-                        use r = new StreamReader(s)
-                        while true do
-                            let! msg = r.ReadLineAsync() |> Async.AwaitTask
-                            match NetworkMessage.unpickle msg with
-                            | Some msg -> received.Emit msg
-                            | None -> ()
-                    }
+        let receiver =
+            Async.StartAsTask <| 
+                async {
+                    use r = new StreamReader(s)
+                    while true do
+                        let! msg = r.ReadLineAsync() |> Async.AwaitTask
+                        match NetworkMessage.unpickle msg with
+                        | Some msg -> received.Emit msg
+                        | None -> ()
+                }
 
-
-
-            return { receive = received.Values; send = send }
-        } |> Async.RunSynchronously
+        { receive = received.Values; send = send }
     
 
 

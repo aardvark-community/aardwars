@@ -23,9 +23,13 @@ let main (args : string[]) =
             "localhost", 7331
 
     Aardvark.Init()
-    let app = new OpenGlApplication()
-    let win = app.CreateGameWindow()
+    let app = new OpenGlApplication(true, DebugLevel.None)
 
+    let fld = typeof<OpenGlApplication>.GetFields(BindingFlags.NonPublic ||| BindingFlags.Instance) |> Array.find (fun f -> f.Name.Contains "windowConfig")
+    let cfg = fld.GetValue(app) :?> Aardvark.Glfw.WindowConfig
+    fld.SetValue(app, { cfg with vsync = false })
+
+    let win = app.CreateGameWindow(4)
     let client = Elm.NetworkGroup.client server port
 
     do 
