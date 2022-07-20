@@ -6,6 +6,12 @@
     <OutputPath>..\..\bin\$(Configuration)\</OutputPath>
   </PropertyGroup>
   <ItemGroup>
+	  <Content Include="assets\sniper.png">
+	    <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+	  </Content>
+	  <None Include="assets\sniper.mtl">
+	    <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+	  </None>
 	  <EmbeddedResource Include="assets\player.png">
 	    <CopyToOutputDirectory>Always</CopyToOutputDirectory>
 	  </EmbeddedResource>
@@ -22,7 +28,10 @@
 	    <CopyToOutputDirectory>Always</CopyToOutputDirectory>
 	  </EmbeddedResource>
 	  <EmbeddedResource Include="assets\shotgun.obj">
-	    <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
+	  </EmbeddedResource>
+	  <EmbeddedResource Include="assets\sniper.obj">
+		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
 	  </EmbeddedResource>
 	  <EmbeddedResource Include="assets\gun.png">
 		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
@@ -70,6 +79,8 @@
 	  <Compile Include="InitialModel.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
+  <ItemGroup />
+  <ItemGroup />
   <ItemGroup>
     <ProjectReference Include="..\Minecraft.Parser\Minecraft.Parser.fsproj" />
   </ItemGroup>

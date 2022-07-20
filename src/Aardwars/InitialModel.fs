@@ -56,6 +56,7 @@ module Game =
             weapons = HashMap.ofArray[|
                     Primary,Weapon.laserGun
                     Secondary,Weapon.shotGun
+                    Tertiary,Weapon.sniper
                 |]
             activeWeapon = Primary
             shotTrails = HashSet.empty

@@ -148,6 +148,7 @@ module Update =
         | KeyUp Keys.Space -> model
         | KeyDown Keys.D1 -> { model with activeWeapon = Primary}
         | KeyDown Keys.D2 -> { model with activeWeapon = Secondary}
+        | KeyDown Keys.D3 -> { model with activeWeapon = Tertiary}
         | KeyDown Keys.R ->
             let weapon = model.weapons.Item model.activeWeapon
             let updatedWeapons = 
