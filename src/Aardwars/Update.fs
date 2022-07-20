@@ -56,6 +56,10 @@ module Update =
         win.Mouse.Down.Values.Add(fun b -> 
             env.Emit [ MouseDown b ]
         )
+
+        win.Mouse.Up.Values.Add(fun b -> 
+            env.Emit [ MouseUp b ]
+        )
         
         let sw = System.Diagnostics.Stopwatch.StartNew()
         let mutable last = sw.Elapsed.TotalSeconds
@@ -246,18 +250,29 @@ module Update =
                         }
                 }
         | UpdateAnimationState s -> {model with gunAnimationState=s}
-        | KeyDown _ 
-        | KeyUp _ 
-        | MouseUp _ -> 
-            model
+        | KeyDown _ -> model
+        | KeyUp _ -> model
+        | MouseUp button ->
+            match button with
+            |MouseButtons.Left -> model
+            |MouseButtons.Right -> {model with proj = Frustum.perspective 110.0 0.1 1000.0 (float model.size.X / float model.size.Y)  }
+            | _ -> model
         | MouseDown button -> 
             match button with
-                | MouseButtons.Left -> 
-                    let messages = [Shoot]
-                    env.Emit messages
-                    model
-                | MouseButtons.Right -> model
+            | MouseButtons.Left -> 
+                let messages = [Shoot]
+                env.Emit messages
+                model
+            | MouseButtons.Right -> 
+                let weapon = model.weapons.Item model.activeWeapon
+                match weapon.name with
+                | "Lasergun" -> model
+                | "Shotgun" -> model
+                | "Sniper" ->
+                    {model with proj = Frustum.perspective 30.0 0.1 1000.0 (float model.size.X / float model.size.Y)}
                 | _ -> model
+                
+            | _ -> model
             
         | Shoot -> 
             let weapon = model.weapons.Item model.activeWeapon
