@@ -287,13 +287,11 @@ module Update =
                             position = p
                             color = C4b.White
                             startTime = model.time
-                            duration = 1.0
+                            duration = 0.75
                         }
 
                     )
                     |> HashSet.ofList
-
-
 
                 hitPlayers
                 |> List.groupBy fst 
@@ -307,7 +305,7 @@ module Update =
                                 position = p
                                 color = C4b.Red
                                 startTime = model.time
-                                duration = 1.0
+                                duration = 5.0
                             }
                         newHits <- HashSet.add newHit newHits
                         client.send (NetworkCommand.Hit(otherPlayerName, dmg))
@@ -321,8 +319,6 @@ module Update =
                     |> HashMap.filter (fun _ t -> t.currentHp > 0)
                 let updatedWeapon = {weapon with ammo = weapon.updateAmmo weapon.ammo; lastShotTime = Some model.time }
                 
-
-
                 { model with
                     targets = updatedTargets
                     weapons = model.weapons |> HashMap.add model.activeWeapon updatedWeapon

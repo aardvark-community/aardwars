@@ -18,8 +18,8 @@ module Game =
         
         //let world = World.randomGenerated 0 (V2i(150,150)) 1.75
         let world = 
-            let textures = @"C:\Users\Schorsch\Desktop\mc"
-            let map = @"C:\Users\Schorsch\Desktop\Small Worlds"
+            let textures = @"C:\minecraft\textures"
+            let map = @"C:\minecraft\Small Worlds"
             let atlas, tree = MinecraftWorld.load env.Runtime textures map
             World.minecraft env.Window atlas tree 1.75
 
@@ -73,40 +73,42 @@ module Game =
         let hits =
             let rand = RandomSystem()
             let cnt = 100
-            model.hitAnimations |> ASet.map (fun hit ->
+            let trafos = 
+                model.hitAnimations |> ASet.mapA (fun hit ->
 
-                let arr = 
-                    Array.init cnt (fun _ ->
-                        let angularMomentum = rand.UniformV3dDirection() *  rand.UniformDouble()
-                        let momentum = rand.UniformV3dDirection() * 20.0 * rand.UniformDouble()
-                        let rot = rand.UniformV3dDirection() * rand.UniformDouble() * Constant.PiTimesTwo |> Rot3d.FromAngleAxis
-                        (hit.position, rot, momentum, angularMomentum)
-                    )
-
-                let res = 
-                    let sw = System.Diagnostics.Stopwatch.StartNew()
-                    env.Window.Time |> AVal.stepTime (fun _ _ thing ->
-                        let dt = sw.Elapsed.TotalSeconds
-                        sw.Restart()
-                        thing |> Array.map (fun (p : V3d, r : Rot3d, v : V3d, w : V3d) ->
-                            let np = p + v*dt
-                            let nr = r * Rot3d.FromAngleAxis(w * dt)
-                            (np, nr, v, w)
+                    let arr = 
+                        Array.init cnt (fun _ ->
+                            let angularMomentum = rand.UniformV3dDirection() *  rand.UniformDouble()
+                            let momentum = rand.UniformV3dDirection() * 3.5 * rand.UniformDouble()
+                            let rot = rand.UniformV3dDirection() * rand.UniformDouble() * Constant.PiTimesTwo |> Rot3d.FromAngleAxis
+                            (hit.position, rot, momentum, angularMomentum)
                         )
-                    ) 
-                    |> AVal.constant 
-                    |> List.singleton 
-                    |> AVal.integrate arr env.Window.Time
 
-                let trafos =
+                    let res = 
+                        let sw = System.Diagnostics.Stopwatch.StartNew()
+                        env.Window.Time |> AVal.stepTime (fun _ _ thing ->
+                            let dt = sw.Elapsed.TotalSeconds
+                            sw.Restart()
+                            thing |> Array.map (fun (p : V3d, r : Rot3d, v : V3d, w : V3d) ->
+                                let np = p + v*dt
+                                let nr = r * Rot3d.FromAngleAxis(w * dt)
+                                let a = 1.75 * v.Length * -v
+                                let nv = v + a*dt
+                                (np, nr, nv, w)
+                            )
+                        ) 
+                        |> AVal.constant 
+                        |> List.singleton 
+                        |> AVal.integrate arr env.Window.Time
+
                     res |> AVal.map (Array.map (fun (p,r,_,_) ->
                         Trafo3d r * Trafo3d.Translation p
                     ))
 
-                Sg.box' hit.color (Box3d.FromCenterAndSize(V3d.Zero, V3d.III * 0.05))
-                |> Sg.instanced trafos
-            )
-            |> Sg.set
+                ) |> ASet.toAVal |> AVal.map Array.concat
+
+            Sg.box' C4b.White (Box3d.FromCenterAndSize(V3d.Zero, V3d.III * 0.025))
+            |> Sg.instanced trafos
             |> Sg.shader {
                 do! DefaultSurfaces.trafo
                 do! DefaultSurfaces.simpleLighting
