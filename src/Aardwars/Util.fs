@@ -151,7 +151,7 @@ module NetworkMessage =
             let m = rx.Match str
             if m.Success then
                 let cmd = m.Groups.[1].Value
-                let data = m.Groups.[2].Value.Split(',')
+                let data = m.Groups.[2].Value.Split(',',StringSplitOptions.RemoveEmptyEntries)
                 match cmd with
                 | "update" ->
                     NetworkMessage.UpdatePosition(data.[0], V3d(float data.[1], float data.[2], float data.[3])) |> Some
