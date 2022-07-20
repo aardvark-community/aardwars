@@ -67,7 +67,7 @@ type Weapon =
         cooldown         : float
         ammo             : AmmunitionType
         range            : float
-        canShoot         : AmmunitionType -> bool
+        canShoot         : AmmunitionType -> Option<float> -> float -> float -> bool
         createHitrays    : CameraView -> list<Ray3d>
         createShottrails : float -> list<Ray3d> -> CameraView -> float -> list<TrailInfo>
         findHitTargets   : float -> list<Ray3d> -> HashMap<string, Target> -> HashMap<string, OtherPlayerInfo> ->  CameraView -> list<string> * list<string>
@@ -76,14 +76,22 @@ type Weapon =
         updateAmmo       : AmmunitionType -> AmmunitionType
         startReload      : AmmunitionType -> float -> AmmunitionType
         reload           : AmmunitionType -> AmmunitionType
+        lastShotTime     : Option<float>
+        waitTimeBetweenShots : float
     }
 
 module Weapon =
     let rand = RandomSystem()
-    let canShoot (t : AmmunitionType) : bool = 
+    let canShoot (t : AmmunitionType) (lastShotTime : Option<float>) (waitTimeBetweenShots : float) (currentTime : float) : bool = 
+        let cooldownFinished = 
+            match lastShotTime with
+            | None -> true
+            | Some lastShotTime -> lastShotTime + waitTimeBetweenShots <= currentTime
+
         match t with
-        | Endless -> true
-        | Limited ammoInfo -> ammoInfo.availableShots > 0 && ammoInfo.startReloadTime.IsNone
+        | Endless -> cooldownFinished
+        | Limited ammoInfo -> ammoInfo.availableShots > 0 && ammoInfo.startReloadTime.IsNone && cooldownFinished
+
 
     let updateAmmo (currentAmmo : AmmunitionType) =
         match currentAmmo with
@@ -110,6 +118,13 @@ module Weapon =
                 | Some _ -> Limited ammoInfo
                 | None -> Limited {ammoInfo with startReloadTime = Some startTime}
             else Limited ammoInfo
+    
+    
+    //let cooldownFinished (lastShotTime : float) (waitTimeBetweenShots : float) (currentTime : float) : bool =
+    //    lastShotTime + waitTimeBetweenShots <= currentTime
+    
+    
+
 
     let findHitTargets (range : float) (rays : list<Ray3d>)(targets : HashMap<string, Target>) (otherPlayers : HashMap<string, OtherPlayerInfo>) (cv : CameraView) =
         let hitTargets =
@@ -188,7 +203,6 @@ module Weapon =
                     )
                 )
             (processed |> HashMap.unionMany)
-
         {
             damage              = damage
             name                = "Lasergun"
@@ -204,6 +218,8 @@ module Weapon =
             updateAmmo          = updateAmmo
             reload              = reload
             startReload         = startReload
+            lastShotTime        = None
+            waitTimeBetweenShots = 0.125
         }
 
     let shotGun : Weapon =
@@ -270,6 +286,8 @@ module Weapon =
             calculateDamage     = calculateDamage
             reload              = reload
             startReload         = startReload
+            lastShotTime        = None
+            waitTimeBetweenShots = 0.25
         }
         
 

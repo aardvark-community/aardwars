@@ -257,7 +257,10 @@ module Update =
                     match ammoInfo.availableShots <= 0 with
                     | false -> weapon
                     | true -> {weapon with ammo =  weapon.startReload weapon.ammo model.time}
-            let canShoot = weapon.canShoot weapon.ammo
+             
+
+
+            let canShoot = weapon.canShoot weapon.ammo weapon.lastShotTime weapon.waitTimeBetweenShots model.time
             match canShoot with
             | false -> {model with weapons = model.weapons |> HashMap.add model.activeWeapon weapon}
             | true -> 
@@ -283,7 +286,9 @@ module Update =
                         model.targets
                         damaged
                     |> HashMap.filter (fun _ t -> t.currentHp > 0)
-                let updatedWeapon = {weapon with ammo = weapon.updateAmmo weapon.ammo}
+                let updatedWeapon = {weapon with ammo = weapon.updateAmmo weapon.ammo; lastShotTime = Some model.time }
+                
+
 
                 { model with
                     targets = updatedTargets

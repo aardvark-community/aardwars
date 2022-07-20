@@ -78,7 +78,7 @@ module Scene =
         
         let grid (gridSize : V2i) (blockCount : int) =
             let rand = RandomSystem()
-            let grid = Array2D.create gridSize.X gridSize.Y 1
+            let grid = Array2D.create gridSize.X gridSize.Y 0
             for i in 0 .. blockCount - 1 do
                 let x = int <| clamp 0.0 (float gridSize.X - 1.0) (round <| rand.Gaussian(float gridSize.X/2.0, float gridSize.X/4.0))
                 let y = int <| clamp 0.0 (float gridSize.Y - 1.0) (round <| rand.Gaussian(float gridSize.Y/2.0, float gridSize.Y/4.0))
