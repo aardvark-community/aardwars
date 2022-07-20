@@ -104,7 +104,7 @@ module Update =
                     camera = 
                         { newModel.camera with 
                             velocity = 
-                                let vn = Fun.Lerp(0.025, newModel.camera.velocity, newModel.camera.move)
+                                let vn = Fun.Lerp(0.1, newModel.camera.velocity, newModel.camera.move)
                                 V3d(vn.X,vn.Y,newModel.camera.move.Z)
                         } 
                 }
