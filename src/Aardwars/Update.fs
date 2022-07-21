@@ -172,22 +172,6 @@ module Update =
             let newCameraView = model.camera.camera.WithLocation(respawnLocation)
             let modelCamera = { model.camera with camera = newCameraView  }
             { model with camera = modelCamera }
-        //| KeyDown Keys.O -> 
-        //    let n = model.moveSpeed + 0.1
-        //    printfn "moveSpeed %.2f" n
-        //    { model with moveSpeed = n }
-        //| KeyDown Keys.P -> 
-        //    let n = model.moveSpeed - 0.1
-        //    printfn "moveSpeed %.2f" n
-        //    { model with moveSpeed = n }
-        //| KeyDown Keys.U -> 
-        //    let n = model.airAccel + 0.00005
-        //    printfn "airAccel %f" n
-        //    { model with airAccel = n }
-        //| KeyDown Keys.I -> 
-        //    let n = model.airAccel - 0.00005
-        //    printfn "airAccel %f" n
-        //    { model with airAccel = n }
         | Resize s -> 
             { model with 
                 size = s
@@ -299,39 +283,48 @@ module Update =
                     | false -> weapon
                     | true -> {weapon with ammo =  weapon.startReload weapon.ammo model.time}
              
-
-
             let canShoot = weapon.canShoot weapon.ammo weapon.lastShotTime weapon.waitTimeBetweenShots model.time
             match canShoot with
             | false -> {model with weapons = model.weapons |> HashMap.add model.activeWeapon weapon}
             | true -> 
                 let shotRays = weapon.createHitrays model.camera.camera
 
+                let hittedTargets,hitPlayers,floorHits = Weapon.findHitTargets weapon.range shotRays model.world model.targets model.otherPlayers model.camera.camera
+                let playerHits = hitPlayers |> List.map (fun (i,_,p) -> i,p) |> HashMap.ofList
                 let newTrails = 
-                    let newTrails = weapon.createShottrails weapon.range shotRays model.camera.camera model.time
+                    let unclippedTrails = weapon.createShottrails weapon.range shotRays model.camera.camera model.time
+                    let floorHits = floorHits |> HashMap.ofList
+                    let targetHits = hittedTargets |> List.map (fun (i,_,p) -> i,p) |> HashMap.ofList
+                    let newTrails = 
+                        List.mapi (fun i (n : TrailInfo) -> 
+                            match floorHits |> HashMap.tryFind i with 
+                            | Some floor -> 
+                                match playerHits |> HashMap.tryFind i, targetHits |> HashMap.tryFind i with
+                                | Some hit, _ | None, Some hit -> {n with Line=Line3d(n.Line.P0, hit)}
+                                | _ -> {n with Line=Line3d(n.Line.P0, floor)}
+                            | _ -> n
+                        ) unclippedTrails 
                     client.send (NetworkCommand.SpawnShotTrails (newTrails |> List.map (fun info -> info.Line, 0.0, info.duration)))
                     newTrails
-
-                let hittedTargets,hitPlayers,floorHits = Weapon.findHitTargets weapon.range shotRays model.world model.targets model.otherPlayers model.camera.camera
-
                 let mutable newHits = 
-                    floorHits |> List.map (fun p ->
-                        {
-                            position = p
-                            color = C4b.Wheat
-                            startTime = model.time
-                            duration = 1.0
-                        }
+                    floorHits |> List.choose (fun (i,p) ->
+                        if playerHits |> HashMap.containsKey i then None
+                        else Some {
+                                position = p
+                                color = C4b.Wheat
+                                startTime = model.time
+                                duration = 1.0
+                            }
                     )
                     |> HashSet.ofList
 
                 hitPlayers
-                |> List.groupBy fst 
+                |> List.groupBy (fun (_,a,_) -> a) 
                 |> List.iter (fun (otherPlayerName,count) -> 
                     let hitCount = count |> List.length
                     let dmg = weapon.calculateDamage hitCount
                     if dmg > 0 then
-                        let (_, p) = count |> List.head
+                        let (_,_, p) = count |> List.head
                         let newHit =
                             {
                                 position = p
@@ -344,7 +337,7 @@ module Update =
                 )
 
                 let updatedTargets = 
-                    let damaged = weapon.processHits (List.map fst hittedTargets) model.targets
+                    let damaged = weapon.processHits (List.map (fun (_,a,_) -> a) hittedTargets) model.targets
                     HashMap.union
                         model.targets
                         damaged
