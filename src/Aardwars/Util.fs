@@ -117,18 +117,21 @@ type NetworkCommand =
     | Died of byPlayer : string
     | Stats
     | SpawnShotTrails of list<Line3d * float * float>
-
+    | SpawnProjectiles of list<string * V3d * V3d * float * float * float * float * float>
+    | Explode of owner:string*pos:V3d*sr:float*br:float*sd:float*bd:float
 
 [<RequireQualifiedAccess>]
 type NetworkMessage =
     | Stats of Map<string, int>
     | UpdatePosition of playerName : string * pos : V3d
-    | SpawnShotTrails of list<Line3d * float * float>
     | Connected of playerName : string
     | Disconnected of playerName : string
     | Died of playerName : string
     | Hit of byPlayer : string * damage : float
     | HitWithSlap of byPlayer : string * damage : float * slap : V3d
+    | SpawnShotTrails of list<Line3d * float * float>
+    | SpawnProjectiles of list<string * V3d * V3d * float * float * float * float * float>
+    | Explode of owner:string*pos:V3d*sr:float*br:float*sd:float*bd:float
 
 module NetworkMessage =
 
@@ -139,12 +142,6 @@ module NetworkMessage =
         match msg with
         | NetworkMessage.Stats s ->
             s |> Seq.map (fun (KeyValue(n, cnt)) -> sprintf "%s:%d" n cnt) |> String.concat "," |> sprintf "#stats %s"
-        | NetworkMessage.SpawnShotTrails trails -> 
-            sprintf 
-                "#spawntrails %s" 
-                    (trails |> List.map (fun (l,s,d) -> 
-                        sprintf "%f:%f:%f:%f:%f:%f:%f:%f" l.P0.X l.P0.Y l.P0.Z l.P1.X l.P1.Y l.P1.Z s d
-                    ) |> String.concat ",") 
         | NetworkMessage.UpdatePosition(n, p) ->
             sprintf "#update %s,%f,%f,%f" n p.X p.Y p.Z
         | NetworkMessage.Connected(n) ->
@@ -157,6 +154,20 @@ module NetworkMessage =
             sprintf "#hit %s,%f" p d
         | NetworkMessage.HitWithSlap(p,d,v) ->
             sprintf "#hitwithslap %s,%f,%f,%f,%f" p d v.X v.Y v.Z
+        | NetworkMessage.SpawnShotTrails trails -> 
+            sprintf 
+                "#spawntrails %s" 
+                    (trails |> List.map (fun (l,s,d) -> 
+                        sprintf "%f:%f:%f:%f:%f:%f:%f:%f" l.P0.X l.P0.Y l.P0.Z l.P1.X l.P1.Y l.P1.Z s d
+                    ) |> String.concat ",")  
+        | NetworkMessage.SpawnProjectiles projs -> 
+            sprintf
+                "#spawnprojectiles %s"
+                    (projs |> List.map (fun (n,p,v,d,sr,br,sd,bd) -> 
+                        sprintf "%s:%f:%f:%f:%f:%f:%f:%f:%f:%f:%f:%f" n p.X p.Y p.Z v.X v.Y v.Z d sr br sd bd
+                    ) |> String.concat ",")
+        | NetworkMessage.Explode (n,p,sr,br,sd,bd) -> 
+            sprintf "#explode %s,%f,%f,%f,%f,%f,%f,%f" n p.X p.Y p.Z sr br sd bd
 
     let unpickle (str : string) =
         try
@@ -194,6 +205,25 @@ module NetworkMessage =
                             l,s,d
                         ) |> Array.toList
                     NetworkMessage.SpawnShotTrails trails |> Some
+                | "spawnprojectiles" -> 
+                    let projs =
+                        data |> Array.map (fun d -> 
+                            let fs = d.Split(':')
+                            let inline ff i = float fs.[i]
+                            let n = fs.[0]
+                            let p = V3d(ff 1, ff 2, ff 3)
+                            let v = V3d(ff 4, ff 5, ff 6)
+                            let d = ff 7
+                            let sr = ff 8
+                            let br = ff 9
+                            let sd = ff 10
+                            let bd = ff 11
+                            n,p,v,d,sr,br,sd,bd
+                        ) |> Array.toList
+                    Some (NetworkMessage.SpawnProjectiles projs)
+                | "explode" -> 
+                    let inline ff i = float data.[i]
+                    Some (NetworkMessage.Explode (data.[0],V3d(ff 1, ff 2, ff 3), ff 4, ff 5, ff 6, ff 7))
                 | cmd ->
                     printfn "BAD MSG: %A" cmd
                     None
@@ -220,6 +250,15 @@ module NetworkCommand =
                     (trails |> List.map (fun (l,s,d) -> 
                         sprintf "%f:%f:%f:%f:%f:%f:%f:%f" l.P0.X l.P0.Y l.P0.Z l.P1.X l.P1.Y l.P1.Z s d
                     ) |> String.concat ",") 
+        | NetworkCommand.SpawnProjectiles projs -> 
+            sprintf
+                "#spawnprojectiles %s"
+                    (projs |> List.map (fun (n,p,v,d,sr,br,sd,bd) -> 
+                        sprintf "%s:%f:%f:%f:%f:%f:%f:%f:%f:%f:%f:%f" n p.X p.Y p.Z v.X v.Y v.Z d sr br sd bd
+                    ) |> String.concat ",")
+        | NetworkCommand.Explode (n,p,sr,br,sd,bd) -> 
+            sprintf "#explode %s,%f,%f,%f,%f,%f,%f,%f" n p.X p.Y p.Z sr br sd bd
+
     let unpickle (str : string) =
         try
             let m = rx.Match str
@@ -243,6 +282,25 @@ module NetworkCommand =
                             l,s,d
                         ) |> Array.toList
                     Some (NetworkCommand.SpawnShotTrails trails)
+                | "spawnprojectiles" -> 
+                    let projs =
+                        data |> Array.map (fun d -> 
+                            let fs = d.Split(':')
+                            let inline ff i = float fs.[i]
+                            let n = fs.[0]
+                            let p = V3d(ff 1, ff 2, ff 3)
+                            let v = V3d(ff 4, ff 5, ff 6)
+                            let d = ff 7
+                            let sr = ff 8
+                            let br = ff 9
+                            let sd = ff 10
+                            let bd = ff 11
+                            n,p,v,d,sr,br,sd,bd
+                        ) |> Array.toList
+                    Some (NetworkCommand.SpawnProjectiles projs)
+                | "explode" -> 
+                    let inline ff i = float data.[i]
+                    Some (NetworkCommand.Explode (data.[0],V3d(ff 1, ff 2, ff 3), ff 4, ff 5, ff 6, ff 7))
                 | _ -> 
                     printfn "BAD CMD: %A" cmd
                     None
@@ -353,6 +411,10 @@ module NetworkGroup =
                                                     send w (NetworkMessage.Stats s)
                                                 | NetworkCommand.SpawnShotTrails trails ->
                                                     broadcast (NetworkMessage.SpawnShotTrails trails)
+                                                | NetworkCommand.SpawnProjectiles projs ->
+                                                    broadcast (NetworkMessage.SpawnProjectiles projs)
+                                                | NetworkCommand.Explode (a,s,d,f,g,h) ->
+                                                    broadcast (NetworkMessage.Explode (a,s,d,f,g,h))
 
                                             | None ->
                                                 ()

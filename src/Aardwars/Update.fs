@@ -52,6 +52,25 @@ module Update =
                 env.Emit [UpdateStats s]
             | NetworkMessage.SpawnShotTrails trails -> 
                 env.Emit [SpawnShotTrails (trails |> List.map (fun (l,s,d) -> l,d))]
+            | NetworkMessage.SpawnProjectiles projs ->
+                let projs = 
+                    projs |> List.map (fun (n,p,v,d,sr,br,sd,bd) -> 
+                        {
+                            Owner                   = n
+                            Position                = p
+                            Velocity                = v
+                            StartTime               = 0.0
+                            MaxDuration             = d
+                            ExplosionSmallRadius    = sr
+                            ExplosionBigRadius      = br
+                            ExplosionSmallDamage    = sd
+                            ExplosionBigDamage      = bd
+                            Trail                   = []
+                        }
+                    )
+                env.Emit [SpawnProjectiles projs]
+            | NetworkMessage.Explode (o,p,sr,br,sd,bd) -> 
+                env.Emit [Explode {Owner=o;Position=p;SmallRadius=sr;BigRadius=br;SmallDamage=sd;BigDamage=bd}]
             | _ ->
                 printfn "%A" msg
         )   
@@ -289,6 +308,7 @@ module Update =
                 )
             {model with projectiles = newProjs}
         | Explode e -> 
+            client.send (NetworkCommand.Explode(e.Owner, e.Position, e.SmallRadius, e.BigRadius, e.SmallDamage, e.BigDamage))
             let myHit, otherHits = Projectile.explode e model.playerName model.camera.camera.Location model.otherPlayers
             match myHit with 
             | None -> ()
@@ -331,6 +351,7 @@ module Update =
                 | _ -> model
             | _ -> model
         | SpawnProjectiles ps -> 
+            let ps = ps |> List.map (fun pi -> {pi with StartTime=model.time})
             {model with projectiles = HashSet.union (HashSet.ofList ps) model.projectiles}
         | SpawnShotTrails trails -> 
             let nts = HashSet.union (HashSet.ofList (trails |> List.map (fun (line,dur) -> {Line=line;duration=dur;startTime=model.time}))) model.shotTrails
@@ -352,20 +373,28 @@ module Update =
                 let shotRays = weapon.createHitrays model.camera.camera
                 let projectiles = 
                     let infos = weapon.createProjectiles model.camera.camera
-                    infos |> List.map (fun i -> 
-                        {
-                            Owner = model.playerName
-                            Position = i.pos
-                            Velocity = i.vel
-                            StartTime = model.time
-                            MaxDuration = 30.0
-                            ExplosionSmallRadius = i.smallRadius
-                            ExplosionBigRadius = i.bigRadius
-                            ExplosionSmallDamage = i.smallDmg
-                            ExplosionBigDamage = i.bigDmg
-                            Trail = []
-                        }
-                    )
+                    let projs = 
+                        infos |> List.map (fun i -> 
+                            {
+                                Owner = model.playerName
+                                Position = i.pos
+                                Velocity = i.vel
+                                StartTime = model.time
+                                MaxDuration = 30.0
+                                ExplosionSmallRadius = i.smallRadius
+                                ExplosionBigRadius = i.bigRadius
+                                ExplosionSmallDamage = i.smallDmg
+                                ExplosionBigDamage = i.bigDmg
+                                Trail = []
+                            }
+                        )
+                    let networkProjs = 
+                        projs |> List.map (fun i -> 
+                            i.Owner, i.Position, i.Velocity, i.MaxDuration, i.ExplosionSmallRadius, i.ExplosionBigRadius, i.ExplosionSmallDamage, i.ExplosionBigDamage
+                        )
+                    client.send (NetworkCommand.SpawnProjectiles networkProjs)
+                    projs
+                    
 
                 let hittedTargets,hitPlayers,floorHits = Weapon.findHitTargets weapon.range shotRays model.world model.targets model.otherPlayers model.camera.camera
                 let playerHits = hitPlayers |> List.map (fun (i,_,p) -> i,p) |> HashMap.ofList
