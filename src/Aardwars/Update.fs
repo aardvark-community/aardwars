@@ -139,6 +139,7 @@ module Update =
 
                 { model with
                     maxHp = 100.0
+                    currentHp = 100.0
                     camera = modelCamera
                 }
             else
@@ -161,6 +162,7 @@ module Update =
         | KeyDown Keys.D1 -> { model with activeWeapon = Primary}
         | KeyDown Keys.D2 -> { model with activeWeapon = Secondary}
         | KeyDown Keys.D3 -> { model with activeWeapon = Tertiary}
+        | KeyDown Keys.D4 -> { model with activeWeapon = Quartiary}
         | KeyDown Keys.R ->
             let weapon = model.weapons.Item model.activeWeapon
             let updatedWeapons = 
@@ -271,7 +273,7 @@ module Update =
                 | _ -> model
             | _ -> model
         | SpawnShotTrails trails -> 
-            let nts = HashSet.union (HashSet.ofList (trails |> List.map (fun (line,dur) -> {Line=line;duration=dur;startTime=model.time}))) model.shotTrails
+            let nts = HashSet.union (HashSet.ofList (trails |> List.map (fun (line,dur) -> {line=line;duration=dur;startTime=model.time;color=C4b.Beige}))) model.shotTrails
             {model with shotTrails = nts}
         | Shoot -> 
             let weapon = model.weapons.Item model.activeWeapon
@@ -300,11 +302,11 @@ module Update =
                             match floorHits |> HashMap.tryFind i with 
                             | Some floor -> 
                                 match playerHits |> HashMap.tryFind i, targetHits |> HashMap.tryFind i with
-                                | Some hit, _ | None, Some hit -> {n with Line=Line3d(n.Line.P0, hit)}
-                                | _ -> {n with Line=Line3d(n.Line.P0, floor)}
+                                | Some hit, _ | None, Some hit -> {n with line=Line3d(n.line.P0, hit)}
+                                | _ -> {n with line=Line3d(n.line.P0, floor)}
                             | _ -> n
                         ) unclippedTrails 
-                    client.send (NetworkCommand.SpawnShotTrails (newTrails |> List.map (fun info -> info.Line, 0.0, info.duration)))
+                    client.send (NetworkCommand.SpawnShotTrails (newTrails |> List.map (fun info -> info.line, 0.0, info.duration)))
                     newTrails
                 let mutable newHits = 
                     floorHits |> List.choose (fun (i,p) ->
@@ -344,7 +346,7 @@ module Update =
                     |> HashMap.filter (fun _ t -> t.currentHp > 0)
                 let updatedWeapon = {weapon with ammo = weapon.updateAmmo weapon.ammo; lastShotTime = Some model.time }
                 
-                env.Emit [SpawnShotTrails (newTrails |> List.map (fun ti -> ti.Line,ti.duration))]
+                env.Emit [SpawnShotTrails (newTrails |> List.map (fun ti -> ti.line,ti.duration))]
                 { model with
                     targets = updatedTargets
                     weapons = model.weapons |> HashMap.add model.activeWeapon updatedWeapon

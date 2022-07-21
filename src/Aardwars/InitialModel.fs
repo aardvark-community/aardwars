@@ -58,6 +58,7 @@ module Game =
                     Primary,Weapon.laserGun
                     Secondary,Weapon.shotGun
                     Tertiary,Weapon.sniper
+                    Quartiary,Weapon.rainbowgun
                 |]
             activeWeapon = Primary
             shotTrails = HashSet.empty

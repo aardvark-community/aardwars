@@ -30,10 +30,12 @@ type WeaponType =
     | Primary
     | Secondary
     | Tertiary
+    | Quartiary
 
 type TrailInfo = 
     {
-        Line        :  Line3d
+        color       :  C4b
+        line        :  Line3d
         startTime   :  float
         duration    :  float
     }
@@ -84,6 +86,7 @@ type Weapon =
 
 module Weapon =
     let rand = RandomSystem()
+    let random = System.Random ()
     let canShoot (t : AmmunitionType) (lastShotTime : Option<float>) (waitTimeBetweenShots : float) (currentTime : float) : bool = 
         let cooldownFinished = 
             match lastShotTime with
@@ -190,7 +193,8 @@ module Weapon =
                 let p1 = shotRay.Origin + range * shotRay.Direction
                 let line = Line3d(p0, p1)
                 {
-                    Line = line
+                    color = C4b.Beige
+                    line = line
                     startTime = time
                     duration = 1.0
                 }
@@ -234,7 +238,7 @@ module Weapon =
             reload              = reload
             startReload         = startReload
             lastShotTime        = None
-            waitTimeBetweenShots = 0.05
+            waitTimeBetweenShots = 0.0
         }
 
     let shotGun : Weapon =
@@ -256,7 +260,8 @@ module Weapon =
                 let p1 = shotRay.Origin + range * shotRay.Direction
                 let line = Line3d(p0, p1)
                 {
-                    Line = line
+                    color = C4b.Beige
+                    line = line
                     startTime = time
                     duration = 0.5
                 }
@@ -317,7 +322,8 @@ module Weapon =
                     let p1 = shotRay.Origin + range * shotRay.Direction
                     let line = Line3d(p0, p1)
                     {
-                        Line = line
+                        color = C4b.Beige
+                        line = line
                         startTime = time
                         duration = 1.0
                     }
@@ -370,7 +376,76 @@ module Weapon =
                 lastShotTime        = None
                 waitTimeBetweenShots = 1.25
             }
-        
+
+    let rainbowgun : Weapon =
+            let damage = Range1d(27, 32)
+            let createHitrays (cv : CameraView) : list<Ray3d> = 
+                let p = cv.Location
+                let d = cv.Forward
+                [Ray3d(p, d)]
+            let createShottrails (range : float) (rays : list<Ray3d>) (cv : CameraView) time =
+                rays |> List.map(fun shotRay ->
+                    let p0 = shotRay.Origin + cv.Right * 0.7 + cv.Down * 0.4 + cv.Forward * 1.0
+                
+                    let p1 = shotRay.Origin + range * shotRay.Direction
+                    let line = Line3d(p0, p1)
+                    let colorArray = [|C4b.Red; C4b.Orange; C4b.Yellow; C4b.Green; C4b.LightBlue; C4b.DarkBlue; C4b.Purple|]
+                    {
+                        color = colorArray.[random.Next(0,6)]
+                        line = line
+                        startTime = time
+                        duration = 1.0
+                    }
+                )
+            let calculateDamage (hitCount : int) : int =                        
+                List.init hitCount (fun _ -> 
+                    let t = rand.UniformDouble()
+                    damage.Lerp t
+                )
+                |> List.sum
+                |> int
+
+            let processHits (names : list<string>) (targets : HashMap<string, Target>) : HashMap<string, Target> =
+                let processed = 
+                    names 
+                    |> List.groupBy id
+                    |> List.map (fun (s,ss) -> 
+                        let hitCount = ss |> List.length
+                        targets
+                        |> HashMap.alter s (fun altV -> 
+                            match altV with
+                            | None -> None
+                            | Some target -> 
+                                let newHp =  target.currentHp - (calculateDamage hitCount)
+                                Some {target with currentHp = int newHp}
+                        )
+                    )
+                (processed |> HashMap.unionMany)
+
+            {
+                damage               = damage
+                name                 = "Rainbowgun"
+                cooldown             = 0.0
+                ammo                 = Limited {
+                                                 reloadTime      = 1.0
+                                                 maxShots        = 30
+                                                 availableShots  = 30
+                                                 startReloadTime = None
+                                               }
+                range               = 100.0
+                canShoot            = canShoot
+                createHitrays       = createHitrays
+                createShottrails    = createShottrails
+                //findHitTargets      = findHitTargets
+                processHits         = processHits
+                updateAmmo          = updateAmmo
+                calculateDamage     = calculateDamage
+                reload              = reload
+                startReload         = startReload
+                lastShotTime        = None
+                waitTimeBetweenShots = 0.1
+
+            }
 
     let scene 
         (emitGunT : V3d -> V3d -> unit)
@@ -447,6 +522,10 @@ module Weapon =
                     Trafo3d.Scale(1.0,1.0,1.0) *
                     Trafo3d.Scale(0.3) *
                     Trafo3d.Translation(1.5,-1.0,-2.0)
+                | Quartiary ->
+                    Trafo3d.Scale(1.0,1.0,1.0) *
+                    Trafo3d.Scale(0.3) *
+                    Trafo3d.Translation(1.15,-1.0,-1.5)
                     
             )
 
@@ -456,12 +535,15 @@ module Weapon =
             Import.importGun("shotgun")
         let sn =
             Import.importGun("sniper")
+        let rg =
+            Import.importGun("rainbowgun")
         let task =  
             activeWeapon
             |> AVal.map (function 
                 | Primary -> lg
                 | Secondary -> sg
                 | Tertiary -> sn
+                | Quartiary -> rg
             )
             |> Sg.dynamic
             |> Sg.trafo gunMotionTrafo
