@@ -632,7 +632,7 @@ module Octree =
 
                     o
                 if overlap then
-                    printfn "OVERLAPPING RANGES"
+                    //printfn "OVERLAPPING RANGES"
                     subnodes |> Seq.collect (fun (tmin, tmax, n) -> traverse ray tmin tmax n) |> Seq.sortBy fst
                 else
                     subnodes |> Seq.collect (fun (tmin, tmax, n) -> traverse ray tmin tmax n)

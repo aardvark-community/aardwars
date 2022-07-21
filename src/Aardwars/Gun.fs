@@ -131,19 +131,19 @@ module Weapon =
     let findHitTargets (range : float) (rays : list<Ray3d>) (world : World) (targets : HashMap<string, Target>) (otherPlayers : HashMap<string, OtherPlayerInfo>) (cv : CameraView) =
         
         let mutable floorHits = []
-
+        
+        let rays = rays |> List.indexed
         let rays =
-            rays |> List.map (fun r ->
+            rays |> List.map (fun (i,r) ->
                 match world.Intersections r 0.0 range |> Seq.tryHead with
                 | Some (t,_) -> 
-                    floorHits <- r.GetPointOnRay t :: floorHits
-                    (r, min t range)
-                | _ -> (r, range)
+                    floorHits <- (i,r.GetPointOnRay (t)) :: floorHits
+                    (i, r, min t range)
+                | _ -> 
+                    (i, r, range)
             )
-
-        
         let hitTargets =
-            rays |> List.choose(fun (shotRay, range) -> 
+            rays |> List.choose(fun (i, shotRay, range) -> 
                 targets 
                 |> HashMap.choose (fun name t -> 
                     let d0 = t.pos -  cv.Location
@@ -159,11 +159,11 @@ module Weapon =
                 |> HashMap.toList
                 |> List.sortBy (fun (_,(t,_)) -> t)
                 |> List.tryHead
-                |> Option.map (fun (name,(_,p)) -> name,p)
+                |> Option.map (fun (name,(_,p)) -> i,name,p)
             )
 
         let hitPlayers =
-            rays |> List.choose(fun (shotRay, range) -> 
+            rays |> List.choose(fun (i, shotRay, range) -> 
                 otherPlayers |> HashMap.toList |> List.choose (fun (name,info) ->
                     let pos = info.pos
                     let b = playerBounds.Translated(pos)
@@ -173,7 +173,7 @@ module Weapon =
                 )
                 |> List.sortBy (fun (_,t,_) -> t)
                 |> List.tryHead
-                |> Option.map (fun (n,_,p) -> n,p)
+                |> Option.map (fun (n,_,p) -> i,n,p)
             )
         hitTargets,hitPlayers,floorHits
 
