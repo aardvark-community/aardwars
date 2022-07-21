@@ -12,18 +12,11 @@ open System.Text
 open System.Text.RegularExpressions
 open FShade
 
-
-
 type Medikit =
     {
         heal    : float -> float -> float
         rarity  : float
     }
-
-
-    
-
-
 
 module PowerUps = 
     let healToMax (maxHp : float) (_ : float) : float =
@@ -36,9 +29,6 @@ module PowerUps =
    
     let doubleMaxHp (maxHp : float) (_ : float): float =
         maxHp * 2.0
-
-
-
 
     let MedikitToMax =
         {
@@ -61,10 +51,14 @@ module PowerUps =
     let scene =
 
         let position world =
-            world.Bounds.Min.XYO + world.Bounds.RangeZ.Center * V3d.OOI + V3d.IIO + V3d(100,100,-60)
+            world.Bounds.Min.XYO + world.Bounds.RangeZ.Center * V3d.OOI + V3d.IIO + V3d(112,100,-68.9)
+
+        let rotationTrafo = Trafo3d.RotationYInDegrees(-60.0) * Trafo3d.RotationXInDegrees(60.0)
 
         let sg world=  
             Import.importObj("MediPack")
+            |> Sg.scale 0.4
+            |> Sg.transform rotationTrafo
             |> Sg.translation' (position world)
             |> Sg.shader {
                 do! DefaultSurfaces.trafo

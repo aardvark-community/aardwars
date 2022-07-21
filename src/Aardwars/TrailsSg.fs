@@ -33,8 +33,23 @@ module Trails =
             shotTrails |> ASet.toAVal |> AVal.map (Seq.toArray >> Array.collect (fun ti -> 
                 [|ti.line.P0; ti.line.P1|]
             ))
+        
         let colors = 
-            shotTrails |> ASet.toAVal |> AVal.map(fun hs -> hs |> HashSet.map(fun st -> st.color)|> HashSet.toArray)
+            shotTrails 
+            |> ASet.toAVal 
+            |> AVal.map (fun hs -> 
+                hs 
+                |> HashSet.map(fun st -> 
+                    let c = st.color
+                    printfn "trail color: %A" c
+                    c
+                )
+                |> HashSet.toArray
+            )
+       
+        //let colors2 =
+        //    verts |> AVal.map (fun vs -> Array.replicate vs.Length C4b.Yellow)
+
         let ts =
             (shotTrails |> ASet.toAVal,currentTime) ||> AVal.map2 (fun trails time -> 
                 trails 

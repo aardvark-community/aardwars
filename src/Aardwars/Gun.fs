@@ -63,7 +63,6 @@ type OtherPlayerInfo =
 module PlayerConstant =
     let playerBounds = Box3d(V3d(-0.3, -0.3, -1.7), V3d(0.3, 0.3, 0.0))
 
-
 type Weapon =
     {
         damage           : Range1d
@@ -386,12 +385,13 @@ module Weapon =
             let createShottrails (range : float) (rays : list<Ray3d>) (cv : CameraView) time =
                 rays |> List.map(fun shotRay ->
                     let p0 = shotRay.Origin + cv.Right * 0.7 + cv.Down * 0.4 + cv.Forward * 1.0
-                
                     let p1 = shotRay.Origin + range * shotRay.Direction
                     let line = Line3d(p0, p1)
                     let colorArray = [|C4b.Red; C4b.Orange; C4b.Yellow; C4b.Green; C4b.LightBlue; C4b.DarkBlue; C4b.Purple|]
+                    let color = colorArray.[random.Next(0,6)]
+                    printfn "rainbow color: %A" color
                     {
-                        color = colorArray.[random.Next(0,6)]
+                        color = color
                         line = line
                         startTime = time
                         duration = 1.0
