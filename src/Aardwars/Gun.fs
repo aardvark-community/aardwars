@@ -27,14 +27,16 @@ type AmmunitionType =
     | Limited of AmmoInfo
 
 type WeaponType =
-    | Primary
-    | Secondary
-    | Tertiary
+    | LaserGun
+    | Shotgun
+    | Sniper
     | RocketLauncher
+    | RainbowGun
 
 type TrailInfo = 
     {
-        Line        :  Line3d
+        color       :  C4b
+        line        :  Line3d
         startTime   :  float
         duration    :  float
     }
@@ -62,7 +64,6 @@ type OtherPlayerInfo =
 module PlayerConstant =
     let playerBounds = Box3d(V3d(-0.3, -0.3, -1.7), V3d(0.3, 0.3, 0.0))
     
-
 type ProjectileCreationInfo =
     {
         pos : V3d
@@ -95,6 +96,7 @@ type Weapon =
 
 module Weapon =
     let rand = RandomSystem()
+    let random = System.Random ()
     let canShoot (t : AmmunitionType) (lastShotTime : Option<float>) (waitTimeBetweenShots : float) (currentTime : float) : bool = 
         let cooldownFinished = 
             match lastShotTime with
@@ -189,7 +191,7 @@ module Weapon =
         hitTargets,hitPlayers,floorHits
 
     let laserGun =
-        let damage = Range1d(10,20)
+        let damage = Range1d(10,15)
         let createHitrays (cv : CameraView) : list<Ray3d> = 
             let p = cv.Location
             let d = cv.Forward
@@ -201,7 +203,8 @@ module Weapon =
                 let p1 = shotRay.Origin + range * shotRay.Direction
                 let line = Line3d(p0, p1)
                 {
-                    Line = line
+                    color = C4b.Beige
+                    line = line
                     startTime = time
                     duration = 1.0
                 }
@@ -246,11 +249,11 @@ module Weapon =
             reload              = reload
             startReload         = startReload
             lastShotTime        = None
-            waitTimeBetweenShots = 0.2
+            waitTimeBetweenShots = 0.0
         }
 
     let shotGun : Weapon =
-        let damage = Range1d(5, 12)
+        let damage = Range1d(10, 15)
         let createHitrays (cv : CameraView) : list<Ray3d> = 
             List.init 10 (fun _ ->
                 let u = (rand.UniformDouble() * 2.0 - 1.0) * 0.1
@@ -268,7 +271,8 @@ module Weapon =
                 let p1 = shotRay.Origin + range * shotRay.Direction
                 let line = Line3d(p0, p1)
                 {
-                    Line = line
+                    color = C4b.Beige
+                    line = line
                     startTime = time
                     duration = 0.5
                 }
@@ -298,12 +302,12 @@ module Weapon =
             name                 = "Shotgun"
             cooldown             = 0.5
             ammo                 = Limited {
-                                             reloadTime      = 1.5
+                                             reloadTime      = 1.25
                                              maxShots        = 2
                                              availableShots  = 2
                                              startReloadTime = None
                                            }
-            range               = 30.0
+            range               = 25.0
             canShoot            = canShoot
             createHitrays       = createHitrays
             createProjectiles   = fun _ -> List.empty
@@ -318,7 +322,7 @@ module Weapon =
         }
 
     let sniper : Weapon =
-            let damage = Range1d(75, 85)
+            let damage = Range1d(95, 105)
             let createHitrays (cv : CameraView) : list<Ray3d> = 
                 let p = cv.Location
                 let d = cv.Forward
@@ -330,7 +334,8 @@ module Weapon =
                     let p1 = shotRay.Origin + range * shotRay.Direction
                     let line = Line3d(p0, p1)
                     {
-                        Line = line
+                        color = C4b.Beige
+                        line = line
                         startTime = time
                         duration = 1.0
                     }
@@ -366,8 +371,78 @@ module Weapon =
                 cooldown             = 0.0
                 ammo                 = Limited {
                                                  reloadTime      = 1.25
-                                                 maxShots        = 1
-                                                 availableShots  = 1
+                                                 maxShots        = 3
+                                                 availableShots  = 3
+                                                 startReloadTime = None
+                                               }
+                range               = 500.0
+                canShoot            = canShoot
+                createHitrays       = createHitrays
+                createShottrails    = createShottrails
+                //findHitTargets      = findHitTargets
+                processHits         = processHits
+                createProjectiles = fun _ -> []
+                updateAmmo          = updateAmmo
+                calculateDamage     = calculateDamage
+                reload              = reload
+                startReload         = startReload
+                lastShotTime        = None
+                waitTimeBetweenShots = 1.25
+            }
+
+    let rainbowgun : Weapon =
+            let damage = Range1d(27, 32)
+            let createHitrays (cv : CameraView) : list<Ray3d> = 
+                let p = cv.Location
+                let d = cv.Forward
+                [Ray3d(p, d)]
+            let createShottrails (range : float) (rays : list<Ray3d>) (cv : CameraView) time =
+                rays |> List.map(fun shotRay ->
+                    let p0 = shotRay.Origin + cv.Right * 0.7 + cv.Down * 0.4 + cv.Forward * 1.0
+                    let p1 = shotRay.Origin + range * shotRay.Direction
+                    let line = Line3d(p0, p1)
+                    let colorArray = [|C4b.Red; C4b.Orange; C4b.Yellow; C4b.Green; C4b.LightBlue; C4b.DarkBlue; C4b.Purple|]
+                    let color = colorArray.[random.Next(0,6)]
+                    {
+                        color = color
+                        line = line
+                        startTime = time
+                        duration = 1.0
+                    }
+                )
+            let calculateDamage (hitCount : int) : int =                        
+                List.init hitCount (fun _ -> 
+                    let t = rand.UniformDouble()
+                    damage.Lerp t
+                )
+                |> List.sum
+                |> int
+
+            let processHits (names : list<string>) (targets : HashMap<string, Target>) : HashMap<string, Target> =
+                let processed = 
+                    names 
+                    |> List.groupBy id
+                    |> List.map (fun (s,ss) -> 
+                        let hitCount = ss |> List.length
+                        targets
+                        |> HashMap.alter s (fun altV -> 
+                            match altV with
+                            | None -> None
+                            | Some target -> 
+                                let newHp =  target.currentHp - (calculateDamage hitCount)
+                                Some {target with currentHp = int newHp}
+                        )
+                    )
+                (processed |> HashMap.unionMany)
+
+            {
+                damage               = damage
+                name                 = "Rainbowgun"
+                cooldown             = 0.0
+                ammo                 = Limited {
+                                                 reloadTime      = 1.0
+                                                 maxShots        = 30
+                                                 availableShots  = 30
                                                  startReloadTime = None
                                                }
                 range               = 100.0
@@ -382,9 +457,9 @@ module Weapon =
                 reload              = reload
                 startReload         = startReload
                 lastShotTime        = None
-                waitTimeBetweenShots = 0.0
-            }
+                waitTimeBetweenShots = 0.1
 
+            }
     let rocketLauncher =
         let createProjectiles (cv : CameraView) =
             let pos = cv.Location + 0.5 * cv.Forward
@@ -404,7 +479,6 @@ module Weapon =
                 }
             ]
         
-
         {
             damage               = Range1d.Infinite
             name                 = "Rocket Launcher"
@@ -492,15 +566,15 @@ module Weapon =
         let modelTrafo = 
             activeWeapon |> AVal.map (fun a -> 
                 match a with 
-                | Primary -> 
+                | LaserGun -> 
                     Trafo3d.Scale(1.0,1.0,-1.0) *
                     Trafo3d.Scale(0.25) *
                     Trafo3d.Translation(1.0,-1.0,-1.0)
-                | Secondary -> 
+                | Shotgun -> 
                     Trafo3d.Scale(1.0,1.0,-1.0) *
                     Trafo3d.Scale(0.18) *
                     Trafo3d.Translation(1.5,-1.0,-1.8)
-                | Tertiary ->
+                | Sniper ->
                     Trafo3d.Scale(1.0,1.0,1.0) *
                     Trafo3d.Scale(0.3) *
                     Trafo3d.Translation(1.5,-1.0,-2.0)
@@ -508,6 +582,10 @@ module Weapon =
                     Trafo3d.Scale(1.0,1.0,1.0) *
                     Trafo3d.Scale(0.2) *
                     Trafo3d.Translation(1.5,-1.0,-2.0)
+                | RainbowGun ->
+                    Trafo3d.Scale(1.0,1.0,1.0) *
+                    Trafo3d.Scale(0.3) *
+                    Trafo3d.Translation(1.15,-1.0,-1.5)
             )
 
         let modelSurface =
@@ -529,6 +607,8 @@ module Weapon =
             Import.importGun("shotgun")
         let sn =
             Import.importGun("sniper")
+        let rg =
+            Import.importGun("rainbowgun")
         let rl =
             Sg.ofList [
                 Sg.box' C4b.DarkRed (Box3d.FromCenterAndSize(V3d.OOI*0.0,V3d.III*0.75))
@@ -543,9 +623,10 @@ module Weapon =
         let task =  
             activeWeapon
             |> AVal.map (function 
-                | Primary -> lg |> modelSurface
-                | Secondary -> sg |> modelSurface
-                | Tertiary -> sn |> modelSurface
+                | LaserGun -> lg |> modelSurface
+                | Shotgun -> sg |> modelSurface
+                | Sniper -> sn |> modelSurface
+                | RainbowGun -> rg |> modelSurface
                 | RocketLauncher -> rl
             )
             |> Sg.dynamic
@@ -581,7 +662,7 @@ module Weapon =
                 let r = 30.0
                 let w = 10.0
                 let t2 = 4.0
-                let color = C4b.Red 
+                let color = C4b.Black
                 ShapeList.ofListWithRenderStyle RenderStyle.NoBoundary [
                     ConcreteShape.circle color t (Circle2d(V2d.Zero, r))
                     ConcreteShape.fillRectangle color (Box2d(r, -t/2.0, r + w, t/2.0))

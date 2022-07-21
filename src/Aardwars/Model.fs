@@ -141,10 +141,11 @@ type Model =
         gunAnimationState   : AnimationState
         otherPlayers        : HashMap<string, OtherPlayerInfo>
         projectiles         : HashSet<ProjectileInfo>
-        hp                  : float
-
+        currentHp           : float
+        maxHp               : float
         hitAnimations       : HashSet<HitAnimation>
         explosionAnimations : HashSet<ExplosionAnimationInfo>
+        triggerHeld : bool
     }
 
 

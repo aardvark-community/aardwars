@@ -22,8 +22,9 @@ module Game =
             let map = @"C:\minecraft\Jakobs KitPvP"
             let atlas, tree = MinecraftWorld.load env.Runtime textures map
             World.minecraft env.Window atlas tree 1.75
+        let random = System.Random()
 
-        let center = world.Bounds.Center.XYO + world.Bounds.Max.OOZ + V3d(0.1, 0.2, 0.4)
+        let center = world.Bounds.Min.XYO + world.Bounds.RangeZ.Center * V3d.OOI + V3d.IIO + V3d(random.Next(45,100),random.Next(45,100),random.Next(-40,-35))
         
         let cam = { CameraController.initial with camera = CameraView.lookAt center (center + V3d.IOO) V3d.OOI }
 
@@ -54,21 +55,24 @@ module Game =
             moveSpeed = 10.0
             airAccel = 0.0015
             weapons = HashMap.ofArray[|
-                    Primary,Weapon.laserGun
-                    Secondary,Weapon.shotGun
-                    Tertiary,Weapon.sniper
+                    LaserGun,Weapon.laserGun
+                    Shotgun,Weapon.shotGun
+                    Sniper,Weapon.sniper
+                    RainbowGun,Weapon.rainbowgun
                     RocketLauncher,Weapon.rocketLauncher
                 |]
-            activeWeapon = Primary
+            activeWeapon = LaserGun
             shotTrails = HashSet.empty
             gunAnimationState = AnimationState.initial
             otherPlayers = HashMap.empty
-            hp = 100.0
+            currentHp = 100
+            maxHp = 100
             hitAnimations = HashSet.empty
             explosionAnimations = HashSet.empty
             projectiles = HashSet.empty
             playerName = System.Environment.MachineName
             frags = 0
+            triggerHeld=false
         }
 
     let view (client : NetworkClient) (env : Environment<Message>) (model : AdaptiveModel) =
@@ -147,6 +151,10 @@ module Game =
                 (model.gunAnimationState |> AVal.map (fun s -> s.t))
                 (model.gunAnimationState |> AVal.map (fun s -> s.a))
                 (model.gunAnimationState |> AVal.map (fun s -> s.lastFw))
+        
+
+        let medipackSg =
+            PowerUps.scene model.world
 
 
         let textSg = 
@@ -165,7 +173,7 @@ module Game =
                     )
 
                 let text = 
-                    (weapon, model.hp) 
+                    (weapon, model.currentHp) 
                     ||> AVal.map2 (fun w hp -> 
                         match w.ammo with
                         | Endless -> sprintf "HP:%.0f\tAmmo: Inf" hp
@@ -216,8 +224,11 @@ module Game =
                 hits
                 projectileSg
                 explosionSg
+                medipackSg
                 Skybox.scene
             ]
             |> Sg.viewTrafo (model.camera.camera |> AVal.map CameraView.viewTrafo)
             |> Sg.projTrafo (model.proj |> AVal.map Frustum.projTrafo)
+        //Sg.ofList [worldSg; gunSg; textSg; targetsSg; trailsSg; otherPlayers; hits; Skybox.scene;medipackSg]
+
 

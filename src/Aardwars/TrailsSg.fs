@@ -13,6 +13,7 @@ open Aardvark.Rendering.Text
 
 
 module Trails =
+    let random = System.Random ()
     module Shader =
         open FShade
 
@@ -32,12 +33,21 @@ module Trails =
                 return V4d(v.c.X, v.c.Y, v.c.Z, float a)
             }
     let sg (shotTrails : aset<TrailInfo>) (currentTime : aval<float>)=
+        
         let verts =
             shotTrails |> ASet.toAVal |> AVal.map (Seq.toArray >> Array.collect (fun ti -> 
-                [|ti.Line.P0; ti.Line.P1|]
+                [|ti.line.P0; ti.line.P1|]
             ))
-        let cols =
-            verts |> AVal.map (fun vs -> Array.replicate vs.Length C4b.Beige)
+        
+        let colors = 
+            shotTrails 
+            |> ASet.toAVal 
+            |> AVal.map (fun hs -> 
+                hs 
+                |> HashSet.toArray
+                |> Array.collect(fun st -> [|st.color;st.color|])
+            )
+
         let ts =
             (shotTrails |> ASet.toAVal,currentTime) ||> AVal.map2 (fun trails time -> 
                 trails 
@@ -55,7 +65,7 @@ module Trails =
         
         Sg.draw IndexedGeometryMode.LineList
         |> Sg.vertexAttribute DefaultSemantic.Positions verts
-        |> Sg.vertexAttribute DefaultSemantic.Colors cols
+        |> Sg.vertexAttribute DefaultSemantic.Colors colors
         |> Sg.vertexAttribute "Alphas" ts
         |> Sg.shader{
             do! DefaultSurfaces.trafo
