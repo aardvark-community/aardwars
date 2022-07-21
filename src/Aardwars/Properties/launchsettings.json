@@ -1,0 +1,8 @@
+{
+  "profiles": {
+    "Aardwars": {
+      "commandName": "Project",
+      "commandLineArgs": "10.42.5.124 7331"
+    }
+  }
+}

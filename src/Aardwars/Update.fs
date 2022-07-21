@@ -10,6 +10,8 @@ open Elm
 open System.Reflection
 open Aardvark.Rendering.Text
 
+
+
 type Message =
     | MouseMove of delta : V2d
     | MouseDown of button : MouseButtons
@@ -27,6 +29,7 @@ type Message =
 
 module Update =
     let rand = RandomSystem()
+    let random = System.Random()
 
     
     let events (client : NetworkClient) (env : Environment<Message>) =
@@ -123,7 +126,7 @@ module Update =
 
         match message with
         | HitBy(player, dmg) ->
-            let hp = model.hp - dmg
+            let hp = model.currentHp - dmg
             if hp <= 0.0 then
                 client.send (NetworkCommand.Died player)
 
@@ -135,11 +138,11 @@ module Update =
                 let modelCamera = { model.camera with camera = newCameraView  }
 
                 { model with
-                    hp = 100.0
+                    maxHp = 100.0
                     camera = modelCamera
                 }
             else
-                { model with hp = hp }
+                { model with currentHp = hp }
 
         | UpdatePlayerPos(player, pos) ->
             { model with otherPlayers = HashMap.alter player (function Some o -> Some {o with pos=pos} | None -> Some {pos=pos;frags=0}) model.otherPlayers }
@@ -165,7 +168,7 @@ module Update =
                 |> HashMap.add model.activeWeapon {weapon with ammo = (weapon.startReload weapon.ammo model.time)}
             {model with weapons = updatedWeapons}
         | KeyDown Keys.Back -> 
-            let respawnLocation = model.world.Bounds.Min.XYO + model.world.Bounds.RangeZ.Center * V3d.OOI + V3d.IIO + V3d(100,100,100)
+            let respawnLocation = model.world.Bounds.Min.XYO + model.world.Bounds.RangeZ.Center * V3d.OOI + V3d.IIO + V3d(random.Next(45,100),random.Next(45,100),random.Next(-40,-35))
             let newCameraView = model.camera.camera.WithLocation(respawnLocation)
             let modelCamera = { model.camera with camera = newCameraView  }
             { model with camera = modelCamera }
@@ -277,7 +280,7 @@ module Update =
             | MouseButtons.Right -> 
                 let weapon = model.weapons.Item model.activeWeapon
                 match weapon.name with
-                | "Lasergun" -> model
+                | "Lasergun" -> {model with proj = Frustum.perspective 90.0 0.1 1000.0 (float model.size.X / float model.size.Y)}
                 | "Shotgun" -> model
                 | "Sniper" ->
                     {model with proj = Frustum.perspective 30.0 0.1 1000.0 (float model.size.X / float model.size.Y)}

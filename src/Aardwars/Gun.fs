@@ -178,7 +178,7 @@ module Weapon =
         hitTargets,hitPlayers,floorHits
 
     let laserGun =
-        let damage = Range1d(10,20)
+        let damage = Range1d(10,15)
         let createHitrays (cv : CameraView) : list<Ray3d> = 
             let p = cv.Location
             let d = cv.Forward
@@ -234,11 +234,11 @@ module Weapon =
             reload              = reload
             startReload         = startReload
             lastShotTime        = None
-            waitTimeBetweenShots = 0.2
+            waitTimeBetweenShots = 0.05
         }
 
     let shotGun : Weapon =
-        let damage = Range1d(5, 12)
+        let damage = Range1d(10, 15)
         let createHitrays (cv : CameraView) : list<Ray3d> = 
             List.init 10 (fun _ ->
                 let u = (rand.UniformDouble() * 2.0 - 1.0) * 0.1
@@ -286,12 +286,12 @@ module Weapon =
             name                 = "Shotgun"
             cooldown             = 0.5
             ammo                 = Limited {
-                                             reloadTime      = 1.5
+                                             reloadTime      = 1.25
                                              maxShots        = 2
                                              availableShots  = 2
                                              startReloadTime = None
                                            }
-            range               = 30.0
+            range               = 25.0
             canShoot            = canShoot
             createHitrays       = createHitrays
             createShottrails    = createShottrails
@@ -305,7 +305,7 @@ module Weapon =
         }
 
     let sniper : Weapon =
-            let damage = Range1d(75, 85)
+            let damage = Range1d(95, 105)
             let createHitrays (cv : CameraView) : list<Ray3d> = 
                 let p = cv.Location
                 let d = cv.Forward
@@ -353,11 +353,11 @@ module Weapon =
                 cooldown             = 0.0
                 ammo                 = Limited {
                                                  reloadTime      = 1.25
-                                                 maxShots        = 1
-                                                 availableShots  = 1
+                                                 maxShots        = 3
+                                                 availableShots  = 3
                                                  startReloadTime = None
                                                }
-                range               = 100.0
+                range               = 500.0
                 canShoot            = canShoot
                 createHitrays       = createHitrays
                 createShottrails    = createShottrails
@@ -368,7 +368,7 @@ module Weapon =
                 reload              = reload
                 startReload         = startReload
                 lastShotTime        = None
-                waitTimeBetweenShots = 0.0
+                waitTimeBetweenShots = 1.25
             }
         
 
@@ -507,7 +507,7 @@ module Weapon =
                 let r = 30.0
                 let w = 10.0
                 let t2 = 4.0
-                let color = C4b.Red 
+                let color = C4b.Black
                 ShapeList.ofListWithRenderStyle RenderStyle.NoBoundary [
                     ConcreteShape.circle color t (Circle2d(V2d.Zero, r))
                     ConcreteShape.fillRectangle color (Box2d(r, -t/2.0, r + w, t/2.0))
