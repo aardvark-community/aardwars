@@ -465,7 +465,7 @@ module Weapon =
             let pos = cv.Location + 0.5 * cv.Forward
             let vel = cv.Forward * 17.5
             let smallRadius = 0.75
-            let smallDmg = 30.0
+            let smallDmg = 20.0
             let bigRadius = 1.5
             let bigDmg = 25.0
             [

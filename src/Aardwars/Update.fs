@@ -291,6 +291,9 @@ module Update =
         | UpdateAnimationState s -> {model with gunAnimationState=s}
         | UpdateProjectiles dt -> 
             let newProjs = 
+                let emitExplosion e =
+                    client.send (NetworkCommand.Explode(e.Owner, e.Position, e.SmallRadius, e.BigRadius, e.SmallDamage, e.BigDamage))
+                    env.Emit [Explode e]
                 Projectile.calculateHits
                     model.projectiles
                     model.playerName
@@ -298,7 +301,7 @@ module Update =
                     dt
                     model.world
                     model.otherPlayers
-                    (fun e -> env.Emit [Explode e])
+                    emitExplosion
             let newProjs =
                 newProjs |> HashSet.map (fun pi -> 
                     let newTrail =
@@ -313,7 +316,6 @@ module Update =
                 )
             {model with projectiles = newProjs}
         | Explode e -> 
-            client.send (NetworkCommand.Explode(e.Owner, e.Position, e.SmallRadius, e.BigRadius, e.SmallDamage, e.BigDamage))
             let myHit, otherHits = Projectile.explode e model.playerName model.camera.camera.Location model.otherPlayers
             match myHit with 
             | None -> ()
