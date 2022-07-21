@@ -389,7 +389,6 @@ module Weapon =
                     let line = Line3d(p0, p1)
                     let colorArray = [|C4b.Red; C4b.Orange; C4b.Yellow; C4b.Green; C4b.LightBlue; C4b.DarkBlue; C4b.Purple|]
                     let color = colorArray.[random.Next(0,6)]
-                    printfn "rainbow color: %A" color
                     {
                         color = color
                         line = line

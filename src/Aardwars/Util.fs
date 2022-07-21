@@ -115,14 +115,14 @@ type NetworkCommand =
     | Hit of playerName : string * damage : float
     | Died of byPlayer : string
     | Stats
-    | SpawnShotTrails of list<Line3d * float * float>
+    | SpawnShotTrails of list<Line3d * float * float * C4b>
 
 
 [<RequireQualifiedAccess>]
 type NetworkMessage =
     | Stats of Map<string, int>
     | UpdatePosition of playerName : string * pos : V3d
-    | SpawnShotTrails of list<Line3d * float * float>
+    | SpawnShotTrails of list<Line3d * float * float * C4b>
     | Connected of playerName : string
     | Disconnected of playerName : string
     | Died of playerName : string
@@ -140,8 +140,8 @@ module NetworkMessage =
         | NetworkMessage.SpawnShotTrails trails -> 
             sprintf 
                 "#spawntrails %s" 
-                    (trails |> List.map (fun (l,s,d) -> 
-                        sprintf "%f:%f:%f:%f:%f:%f:%f:%f" l.P0.X l.P0.Y l.P0.Z l.P1.X l.P1.Y l.P1.Z s d
+                    (trails |> List.map (fun (l,s,d,c) -> 
+                        sprintf "%f:%f:%f:%f:%f:%f:%f:%f:%i:%i:%i" l.P0.X l.P0.Y l.P0.Z l.P1.X l.P1.Y l.P1.Z s d c.R c.G c.B
                     ) |> String.concat ",") 
         | NetworkMessage.UpdatePosition(n, p) ->
             sprintf "#update %s,%f,%f,%f" n p.X p.Y p.Z
@@ -185,7 +185,8 @@ module NetworkMessage =
                             let l = Line3d(V3d(fs.[0],fs.[1],fs.[2]),V3d(fs.[3],fs.[4],fs.[5]))
                             let s = fs.[6]
                             let d = fs.[7]
-                            l,s,d
+                            let c = C4b(fs.[8], fs.[9], fs.[10])
+                            l,s,d,c
                         ) |> Array.toList
                     NetworkMessage.SpawnShotTrails trails |> Some
                 | cmd ->
@@ -210,8 +211,8 @@ module NetworkCommand =
         | NetworkCommand.SpawnShotTrails trails -> 
             sprintf 
                 "#spawntrails %s" 
-                    (trails |> List.map (fun (l,s,d) -> 
-                        sprintf "%f:%f:%f:%f:%f:%f:%f:%f" l.P0.X l.P0.Y l.P0.Z l.P1.X l.P1.Y l.P1.Z s d
+                    (trails |> List.map (fun (l,s,d,c) -> 
+                        sprintf "%f:%f:%f:%f:%f:%f:%f:%f:%i:%i:%i" l.P0.X l.P0.Y l.P0.Z l.P1.X l.P1.Y l.P1.Z s d c.R c.G c.B
                     ) |> String.concat ",") 
     let unpickle (str : string) =
         try
@@ -232,7 +233,8 @@ module NetworkCommand =
                             let l = Line3d(V3d(fs.[0],fs.[1],fs.[2]),V3d(fs.[3],fs.[4],fs.[5]))
                             let s = fs.[6]
                             let d = fs.[7]
-                            l,s,d
+                            let c = C4b(fs.[8], fs.[9], fs.[10])
+                            l,s,d,c
                         ) |> Array.toList
                     Some (NetworkCommand.SpawnShotTrails trails)
                 | _ -> 
