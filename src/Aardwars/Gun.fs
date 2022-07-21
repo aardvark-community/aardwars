@@ -387,11 +387,11 @@ module Weapon =
 
     let rocketLauncher =
         let createProjectiles (cv : CameraView) =
-            let pos = cv.Location + 0.1 * cv.Forward
+            let pos = cv.Location + 0.5 * cv.Forward
             let vel = cv.Forward * 17.5
-            let smallRadius = 1.0
+            let smallRadius = 0.75
             let smallDmg = 30.0
-            let bigRadius = 2.5
+            let bigRadius = 1.5
             let bigDmg = 25.0
             [
                 {

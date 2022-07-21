@@ -65,6 +65,7 @@ module Game =
             otherPlayers = HashMap.empty
             hp = 100.0
             hitAnimations = HashSet.empty
+            explosionAnimations = HashSet.empty
             projectiles = HashSet.empty
             playerName = System.Environment.MachineName
             frags = 0
@@ -181,6 +182,7 @@ module Game =
                 
         let trailsSg = Trails.sg model.shotTrails model.time |> Sg.pass Passes.pass1
         let projectileSg = Projectile.scene model.projectiles
+        let explosionSg = Projectile.explosionScene model.time model.explosionAnimations
 
         let targetsSg =
             model.targets 
@@ -203,7 +205,19 @@ module Game =
             }
 
 
-        Sg.ofList [worldSg; gunSg; textSg; targetsSg; trailsSg; otherPlayers; hits; projectileSg; Skybox.scene]
+        Sg.ofList 
+            [
+                worldSg
+                gunSg
+                textSg
+                targetsSg
+                trailsSg
+                otherPlayers
+                hits
+                projectileSg
+                explosionSg
+                Skybox.scene
+            ]
             |> Sg.viewTrafo (model.camera.camera |> AVal.map CameraView.viewTrafo)
             |> Sg.projTrafo (model.proj |> AVal.map Frustum.projTrafo)
 

@@ -23,6 +23,7 @@ module CameraController =
         {
             move = V3d.Zero
             velocity = V3d.Zero
+            blastVelocity = V3d.Zero
             look = false
             camera = CameraView.lookAt (V3d(3,4,5)) V3d.Zero V3d.OOI
         }
@@ -51,18 +52,26 @@ module CameraController =
             { cam with move = cam.move - speed }
         | CameraMessage.UpdateTime(_, dt) ->
             let v = cam.velocity
-            if v.AllEqual 0.0 then
+            let bv = cam.blastVelocity
+            if v.AllEqual 0.0 && bv.AllEqual 0.0 then
                 cam
             else
                 let o = cam.camera
                 let sky = o.Sky |> Vec.normalize
                 let f = (o.Forward - sky * Vec.dot o.Forward sky) |> Vec.normalize
                 let r = (o.Right - sky * Vec.dot o.Right sky) |> Vec.normalize
+                
+                let nbv = 
+                    let nv = bv * 0.96
+                    if nv.Length <= 0.025 then V3d.Zero
+                    else nv
 
                 { cam with 
+                    blastVelocity = nbv
                     camera = 
                         o.WithLocation(
                             o.Location + 
+                            bv +
                             f * v.Y * dt +
                             r * v.X * dt +
                             sky * v.Z * dt

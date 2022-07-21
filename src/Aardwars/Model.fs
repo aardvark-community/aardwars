@@ -17,6 +17,7 @@ type CameraModel =
         look        : bool
         move        : V3d
         velocity    : V3d
+        blastVelocity : V3d
         camera      : CameraView
     }
 
@@ -95,6 +96,7 @@ type ProjectileInfo =
         ExplosionBigRadius : float
         ExplosionSmallDamage : float
         ExplosionBigDamage : float
+        Trail : list<V3d>
     }
     
 type ExplosionInfo =
@@ -105,6 +107,16 @@ type ExplosionInfo =
         BigRadius : float
         SmallDamage : float
         BigDamage : float
+    }
+type ExplosionAnimationInfo =
+    {
+        Center : V3d
+        SmallRadius : float
+        BigRadius : float
+        StartTime : float
+        Duration : float
+        SmallColor : C4b
+        BigColor : C4b
     }
 
 [<ModelType>]
@@ -132,7 +144,7 @@ type Model =
         hp                  : float
 
         hitAnimations       : HashSet<HitAnimation>
-
+        explosionAnimations : HashSet<ExplosionAnimationInfo>
     }
 
 

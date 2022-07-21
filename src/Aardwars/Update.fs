@@ -148,13 +148,9 @@ module Update =
                 { model with hp = hp }
         | HitByWithSlap(player, dmg, vel) ->
             env.Emit [HitBy(player,dmg)]
-            let newVel = 
-                let t = Trafo3d.FromBasis(model.camera.camera.Right, model.camera.camera.Forward, model.camera.camera.Up, V3d.OOO)
-                model.camera.velocity + (t.Backward.TransformDir vel.XYZ)
             {model with 
                 camera =
-                    {model.camera with velocity = newVel}
-                onFloor = false
+                    {model.camera with blastVelocity = model.camera.blastVelocity + vel}
             }
         | UpdatePlayerPos(player, pos) ->
             { model with otherPlayers = HashMap.alter player (function Some o -> Some {o with pos=pos} | None -> Some {pos=pos;frags=0}) model.otherPlayers }
@@ -223,7 +219,14 @@ module Update =
                 )
             let model = { model with weapons = updatedWeapons}
 
-
+            let model = 
+                {model with 
+                    explosionAnimations = 
+                        model.explosionAnimations
+                        |> HashSet.filter (fun i ->
+                            i.StartTime+i.Duration > t
+                        )
+                }
             let model = 
                 {model with 
                     gunAnimationState = 
@@ -272,6 +275,18 @@ module Update =
                     model.world
                     model.otherPlayers
                     (fun e -> env.Emit [Explode e])
+            let newProjs =
+                newProjs |> HashSet.map (fun pi -> 
+                    let newTrail =
+                        match pi.Trail |> List.tryHead with 
+                        | Some h -> 
+                            if Vec.distance pi.Position h >= 2.0 then 
+                                pi.Position::(pi.Trail |> List.truncate 4)
+                            else 
+                                pi.Trail
+                        | None -> [pi.Position]
+                    {pi with Trail = newTrail}
+                )
             {model with projectiles = newProjs}
         | Explode e -> 
             let myHit, otherHits = Projectile.explode e model.playerName model.camera.camera.Location model.otherPlayers
@@ -282,7 +297,17 @@ module Update =
             otherHits |> HashMap.iter (fun name (vel,dmg) -> 
                 client.send (NetworkCommand.HitWithSlap(name,dmg,vel))
             )
-            model
+            let anim =
+                {
+                    Center = e.Position
+                    SmallRadius = e.SmallRadius
+                    BigRadius = e.BigRadius
+                    StartTime = model.time
+                    Duration = 1.0
+                    BigColor = C4b.Gold
+                    SmallColor = C4b.LightYellow
+                }
+            {model with explosionAnimations = model.explosionAnimations |> HashSet.add anim}
         | KeyDown _ -> model
         | KeyUp _ -> model
         | MouseUp button ->
@@ -338,6 +363,7 @@ module Update =
                             ExplosionBigRadius = i.bigRadius
                             ExplosionSmallDamage = i.smallDmg
                             ExplosionBigDamage = i.bigDmg
+                            Trail = []
                         }
                     )
 
@@ -365,7 +391,7 @@ module Update =
                                 position = p
                                 color = C4b.Wheat
                                 startTime = model.time
-                                duration = 1.0
+                                duration = 0.5
                             }
                     )
                     |> HashSet.ofList

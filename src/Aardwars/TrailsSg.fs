@@ -26,7 +26,11 @@ module Trails =
             vertex {
                 return {v with c = V4d(v.c.X, v.c.Y, v.c.Z, float v.t)}
             }
-
+        let sgAlpha (v : TrailVertex) =
+            fragment {
+                let a : float32 = uniform?Alpha
+                return V4d(v.c.X, v.c.Y, v.c.Z, float a)
+            }
     let sg (shotTrails : aset<TrailInfo>) (currentTime : aval<float>)=
         let verts =
             shotTrails |> ASet.toAVal |> AVal.map (Seq.toArray >> Array.collect (fun ti -> 

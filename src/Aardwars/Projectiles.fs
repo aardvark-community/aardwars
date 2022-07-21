@@ -77,21 +77,20 @@ module Projectile =
     let explode (e : ExplosionInfo) (myName : string) (myPos : V3d) (otherPlayers : HashMap<string, OtherPlayerInfo>) =
         let smallSphere = Sphere3d(e.Position, e.SmallRadius)
         let bigSphere = Sphere3d(e.Position, e.BigRadius)
-        let dirMag = V3d(1.0,1.0,1.0)
         let processPlayer (pos : V3d) (isMe : bool) =
             let bb = playerBounds.Translated pos
             let Smd = 
                 if bb.Intersects smallSphere then
                     let dir = (pos - e.Position).Normalized
-                    let vel = dirMag * dir * 10.0
-                    let dmg = if isMe then e.BigDamage * 0.0 else e.SmallDamage
+                    let vel = dir * 0.15
+                    let dmg = if isMe then e.BigDamage * 0.35 else e.SmallDamage
                     Some (vel, dmg)
                 else None
             let Bmd =
                 if bb.Intersects bigSphere then
                     let dir = (pos - e.Position).Normalized
-                    let vel = dirMag * dir * 10.0
-                    let dmg = if isMe then e.BigDamage * 0.0 else e.BigDamage
+                    let vel = dir * 0.15
+                    let dmg = if isMe then e.BigDamage * 0.35 else e.BigDamage
                     Some (vel, dmg)
                 else None
             match Smd, Bmd with 
@@ -105,14 +104,119 @@ module Projectile =
                 
         
     let scene (projectiles : aset<ProjectileInfo>) =
-        let trafos = 
-            projectiles |> ASet.toAVal |> AVal.map (Seq.toArray >> (Array.map (fun pi -> 
-                Trafo3d.Translation pi.Position
-            )))
+        let pa = projectiles |> ASet.toAVal |> AVal.map Seq.toArray
+        let projsSg =
+            let trafos = 
+                pa |> AVal.map (Array.map (fun pi -> 
+                    Trafo3d.Translation pi.Position
+                ))
 
-        Sg.box' C4b.Yellow (Box3d.FromCenterAndSize(V3d.OOO,V3d.III*0.15))
-        |> Sg.instanced trafos
+            Sg.box' C4b.Yellow (Box3d.FromCenterAndSize(V3d.OOO,V3d.III*0.15))
+            |> Sg.instanced trafos
+            |> Sg.shader {
+                do! DefaultSurfaces.trafo
+                do! DefaultSurfaces.vertexColor
+            }
+        let trailsSg =
+            let atts = 
+                pa |> AVal.map (Array.collect (fun pi -> 
+                    let pit = pi.Trail |> List.toArray
+                    let l = float pit.Length
+                    if pit.Length <= 0 then [||]
+                    else
+                        [|
+                            let t = 1.0/1.5
+                            yield pi.Position,C4b.White,t
+                            let mutable lastP = pit.[0]
+                            yield lastP,C4b.White,t
+                            for i in 1..pit.Length-1 do
+                                if i=1 then 
+                                    let t = (1.0-(float i/l))
+                                    yield lastP,C4b.White,t
+                                    yield pit.[i],C4b.White,t/1.5
+                                else
+                                    let t = (1.0-(float (i-1)/l))
+                                    yield pit.[i-1],C4b.Yellow,t/1.5
+                                    let t = (1.0-(float i/l))
+                                    yield pit.[i],C4b.GoldenRod,t/1.5
+                        |]
+                ))
+            let atts = atts |> AVal.map Array.unzip3
+            let pos  = atts |> AVal.map (fun (v,_,_) -> v)
+            let cols = atts |> AVal.map (fun (_,v,_) -> v)
+            let alps = atts |> AVal.map (fun (_,_,v) -> v)
+
+            Sg.draw IndexedGeometryMode.LineList
+            |> Sg.vertexAttribute DefaultSemantic.Positions pos
+            |> Sg.vertexAttribute DefaultSemantic.Colors cols
+            |> Sg.vertexAttribute "Alphas" alps
+            |> Sg.shader{
+                do! DefaultSurfaces.trafo
+                do! Trails.Shader.adjustAlpha
+                do! DefaultSurfaces.vertexColor
+                do! DefaultSurfaces.thickLine
+            }
+            |> Sg.uniform' "LineWidth" (8.0)
+            |> Sg.blendMode' BlendMode.Blend
+            |> Sg.pass Passes.pass1
+            
+        Sg.ofList [projsSg;trailsSg]
+
+    let explosionScene (t : aval<float>) (es : aset<ExplosionAnimationInfo>) =
+        let arr = 
+            es |> ASet.map (fun e -> 
+                let inline res (r : float) (c : C4b) (t : float) (rs : float) =
+                    let color = c
+                    let t = (1.0 - (t - e.StartTime)/e.Duration)
+                    let alpha = t * 0.95
+                    let localScale = t * 0.75 + 0.25
+                    let trafo = 
+                        Trafo3d.RotationZInDegrees(t*2.0*360.0*rs) *
+                        Trafo3d.Scale r *
+                        Trafo3d.Scale localScale *
+                        Trafo3d.Translation e.Center
+                    trafo,color,alpha
+                t |> AVal.map (fun t -> 
+                    [|
+                        res e.SmallRadius e.SmallColor t -1.0
+                        res e.BigRadius e.BigColor t 1.0
+                    |]
+                )
+            )
+        let things = arr |> ASet.toAVal 
+        let trafos = 
+            AVal.custom (fun tok -> 
+                let t = things.GetValue(tok) |> HashSet.toArray
+                t |> Array.collect (fun atts -> 
+                    atts.GetValue(tok) |> Array.map (fun (v,_,_) -> v)
+                )   
+            )
+        let colors = 
+            AVal.custom (fun tok -> 
+                let t = things.GetValue(tok) |> HashSet.toArray
+                t |> Array.collect (fun atts -> 
+                    atts.GetValue(tok) |> Array.map (fun (_,v,_) -> v)
+                )   
+            )
+        let alphas = 
+            AVal.custom (fun tok -> 
+                let t = things.GetValue(tok) |> HashSet.toArray
+                t |> Array.collect (fun atts -> 
+                    atts.GetValue(tok) |> Array.map (fun (_,_,v) -> float32 v)
+                )   
+            )
+        let things = 
+            Map.ofList [
+                "ModelTrafo", (typeof<Trafo3d>,trafos |> AVal.map unbox)
+                "Color", (typeof<C4b>,colors |> AVal.map unbox)
+                "Alpha", (typeof<float32>,alphas |> AVal.map unbox)
+            ]
+        Sg.sphere' 1 C4b.White 1.0
+        |> Sg.instanced' things
         |> Sg.shader {
             do! DefaultSurfaces.trafo
-            do! DefaultSurfaces.vertexColor
+            do! DefaultSurfaces.sgColor
+            do! Trails.Shader.sgAlpha
         }
+        |> Sg.blendMode' BlendMode.Blend
+        |> Sg.pass Passes.pass1
