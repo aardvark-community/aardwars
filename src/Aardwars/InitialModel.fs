@@ -57,6 +57,7 @@ module Game =
                     Primary,Weapon.laserGun
                     Secondary,Weapon.shotGun
                     Tertiary,Weapon.sniper
+                    RocketLauncher,Weapon.rocketLauncher
                 |]
             activeWeapon = Primary
             shotTrails = HashSet.empty
@@ -64,6 +65,7 @@ module Game =
             otherPlayers = HashMap.empty
             hp = 100.0
             hitAnimations = HashSet.empty
+            projectiles = HashSet.empty
             playerName = System.Environment.MachineName
             frags = 0
         }
@@ -178,7 +180,8 @@ module Game =
             [ velocitySg; statsSg; Text.scoreboard env.Window model.frags model.playerName model.otherPlayers ] |> Sg.ofList
                 
         let trailsSg = Trails.sg model.shotTrails model.time |> Sg.pass Passes.pass1
-            
+        let projectileSg = Projectile.scene model.projectiles
+
         let targetsSg =
             model.targets 
             |> AMap.toASet 
@@ -200,7 +203,7 @@ module Game =
             }
 
 
-        Sg.ofList [worldSg; gunSg; textSg; targetsSg; trailsSg; otherPlayers; hits; Skybox.scene]
+        Sg.ofList [worldSg; gunSg; textSg; targetsSg; trailsSg; otherPlayers; hits; projectileSg; Skybox.scene]
             |> Sg.viewTrafo (model.camera.camera |> AVal.map CameraView.viewTrafo)
             |> Sg.projTrafo (model.proj |> AVal.map Frustum.projTrafo)
 

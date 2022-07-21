@@ -75,11 +75,11 @@
 	  <Compile Include="Camera.fs" />
 	  <Compile Include="Skybox.fs" />
 	  <Compile Include="TrailsSg.fs" />
+	  <Compile Include="Projectiles.fs" />
 	  <Compile Include="Update.fs" />
 	  <Compile Include="InitialModel.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
-  <ItemGroup />
   <ItemGroup />
   <ItemGroup>
     <ProjectReference Include="..\Minecraft.Parser\Minecraft.Parser.fsproj" />

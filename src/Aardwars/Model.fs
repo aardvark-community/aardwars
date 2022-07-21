@@ -83,7 +83,29 @@ type HitAnimation =
         duration    : float
         color       : C4b
     }
-
+    
+type ProjectileInfo =
+    {
+        Owner : string
+        Position : V3d
+        Velocity : V3d
+        StartTime : float
+        MaxDuration : float
+        ExplosionSmallRadius : float
+        ExplosionBigRadius : float
+        ExplosionSmallDamage : float
+        ExplosionBigDamage : float
+    }
+    
+type ExplosionInfo =
+    {
+        Owner : string
+        Position : V3d
+        SmallRadius : float
+        BigRadius : float
+        SmallDamage : float
+        BigDamage : float
+    }
 
 [<ModelType>]
 type Model =
@@ -106,6 +128,7 @@ type Model =
         shotTrails          : HashSet<TrailInfo>
         gunAnimationState   : AnimationState
         otherPlayers        : HashMap<string, OtherPlayerInfo>
+        projectiles         : HashSet<ProjectileInfo>
         hp                  : float
 
         hitAnimations       : HashSet<HitAnimation>

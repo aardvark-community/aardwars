@@ -30,6 +30,7 @@ type WeaponType =
     | Primary
     | Secondary
     | Tertiary
+    | RocketLauncher
 
 type TrailInfo = 
     {
@@ -60,8 +61,17 @@ type OtherPlayerInfo =
 [<AutoOpen>]
 module PlayerConstant =
     let playerBounds = Box3d(V3d(-0.3, -0.3, -1.7), V3d(0.3, 0.3, 0.0))
+    
 
-
+type ProjectileCreationInfo =
+    {
+        pos : V3d
+        vel : V3d
+        smallRadius : float
+        smallDmg : float
+        bigRadius : float
+        bigDmg : float
+    }
 type Weapon =
     {
         damage           : Range1d
@@ -71,6 +81,7 @@ type Weapon =
         range            : float
         canShoot         : AmmunitionType -> Option<float> -> float -> float -> bool
         createHitrays    : CameraView -> list<Ray3d>
+        createProjectiles : CameraView -> list<ProjectileCreationInfo>
         createShottrails : float -> list<Ray3d> -> CameraView -> float -> list<TrailInfo>
         //findHitTargets   : float -> list<Ray3d> -> HashMap<string, Target> -> HashMap<string, OtherPlayerInfo> ->  CameraView -> list<string> * list<string>
         processHits      : list<string> -> HashMap<string, Target> -> HashMap<string, Target>
@@ -227,6 +238,7 @@ module Weapon =
             range               = 1000.0
             canShoot            = canShoot
             createHitrays       = createHitrays
+            createProjectiles   = fun _ -> List.empty
             createShottrails    = createShottrails
             calculateDamage     = calculateDamage
             processHits         = processHits
@@ -294,6 +306,7 @@ module Weapon =
             range               = 30.0
             canShoot            = canShoot
             createHitrays       = createHitrays
+            createProjectiles   = fun _ -> List.empty
             createShottrails    = createShottrails
             processHits         = processHits
             updateAmmo          = updateAmmo
@@ -360,6 +373,7 @@ module Weapon =
                 range               = 100.0
                 canShoot            = canShoot
                 createHitrays       = createHitrays
+                createProjectiles   = fun _ -> List.empty
                 createShottrails    = createShottrails
                 //findHitTargets      = findHitTargets
                 processHits         = processHits
@@ -370,7 +384,50 @@ module Weapon =
                 lastShotTime        = None
                 waitTimeBetweenShots = 0.0
             }
+
+    let rocketLauncher =
+        let createProjectiles (cv : CameraView) =
+            let pos = cv.Location + 0.1 * cv.Forward
+            let vel = cv.Forward * 17.5
+            let smallRadius = 1.0
+            let smallDmg = 30.0
+            let bigRadius = 2.5
+            let bigDmg = 25.0
+            [
+                {
+                    pos             = pos
+                    vel             = vel
+                    smallRadius     = smallRadius
+                    smallDmg        = smallDmg
+                    bigRadius       = bigRadius
+                    bigDmg          = bigDmg
+                }
+            ]
         
+
+        {
+            damage               = Range1d.Infinite
+            name                 = "Rocket Launcher"
+            cooldown             = 0.05
+            ammo                 = Limited {
+                                                reloadTime      = 1.25
+                                                maxShots        = 5
+                                                availableShots  = 5
+                                                startReloadTime = None
+                                            }
+            range               = 12345.0
+            canShoot            = canShoot
+            createHitrays       = fun _ -> List.empty
+            createProjectiles   = createProjectiles
+            createShottrails    = fun _ _ _ _ -> List.empty
+            processHits         = fun _ _ -> HashMap.empty
+            updateAmmo          = updateAmmo
+            calculateDamage     = fun _ -> 0
+            reload              = reload
+            startReload         = startReload
+            lastShotTime        = None
+            waitTimeBetweenShots = 0.05
+        }
 
     let scene 
         (emitGunT : V3d -> V3d -> unit)
@@ -447,26 +504,14 @@ module Weapon =
                     Trafo3d.Scale(1.0,1.0,1.0) *
                     Trafo3d.Scale(0.3) *
                     Trafo3d.Translation(1.5,-1.0,-2.0)
-                    
+                | RocketLauncher -> 
+                    Trafo3d.Scale(1.0,1.0,1.0) *
+                    Trafo3d.Scale(0.2) *
+                    Trafo3d.Translation(1.5,-1.0,-2.0)
             )
 
-        let lg =
-            Import.importGun("gun") 
-        let sg = 
-            Import.importGun("shotgun")
-        let sn =
-            Import.importGun("sniper")
-        let task =  
-            activeWeapon
-            |> AVal.map (function 
-                | Primary -> lg
-                | Secondary -> sg
-                | Tertiary -> sn
-            )
-            |> Sg.dynamic
-            |> Sg.trafo gunMotionTrafo
-            |> Sg.trafo modelTrafo
-            |> Sg.shader {
+        let modelSurface =
+            Sg.shader {
                 do! DefaultSurfaces.trafo
                 do! DefaultSurfaces.diffuseTexture
                 do! 
@@ -477,6 +522,35 @@ module Weapon =
                     )
                 do! DefaultSurfaces.simpleLighting
             }
+                
+        let lg =
+            Import.importGun("gun") 
+        let sg = 
+            Import.importGun("shotgun")
+        let sn =
+            Import.importGun("sniper")
+        let rl =
+            Sg.ofList [
+                Sg.box' C4b.DarkRed (Box3d.FromCenterAndSize(V3d.OOI*0.0,V3d.III*0.75))
+                Sg.box' C4b.DarkRed (Box3d.FromCenterAndSize(V3d.OOI*1.0,V3d.III*0.75))
+                Sg.box' C4b.DarkRed (Box3d.FromCenterAndSize(V3d.OOI*2.0,V3d.III*0.75))
+            ]
+            |> Sg.shader {
+                do! DefaultSurfaces.trafo
+                do! DefaultSurfaces.vertexColor
+                do! DefaultSurfaces.simpleLighting
+            }
+        let task =  
+            activeWeapon
+            |> AVal.map (function 
+                | Primary -> lg |> modelSurface
+                | Secondary -> sg |> modelSurface
+                | Tertiary -> sn |> modelSurface
+                | RocketLauncher -> rl
+            )
+            |> Sg.dynamic
+            |> Sg.trafo gunMotionTrafo
+            |> Sg.trafo modelTrafo
             |> Sg.viewTrafo (AVal.constant Trafo3d.Identity)
             |> Sg.projTrafo gunProjection
             |> Sg.cullMode' CullMode.None

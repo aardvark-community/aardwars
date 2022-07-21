@@ -20,9 +20,13 @@ type Message =
     | UpdateTime of seconds : float * delta : float
     | UpdateAnimationState of AnimationState
     | SpawnShotTrails of list<Line3d*float>
+    | SpawnProjectiles of list<ProjectileInfo>
+    | UpdateProjectiles of dt:float
+    | Explode of ExplosionInfo
     | Shoot
     | UpdatePlayerPos of string * V3d
     | HitBy of string * float
+    | HitByWithSlap of string * float * V3d
     | UpdateStats of Map<string,int>
 
 module Update =
@@ -42,6 +46,8 @@ module Update =
                 env.Emit [UpdatePlayerPos(player, pos)]
             | NetworkMessage.Hit(player, dmg) ->
                 env.Emit [HitBy(player, dmg)]
+            | NetworkMessage.HitWithSlap(player, dmg, vel) ->
+                env.Emit [HitByWithSlap(player, dmg, vel)]
             | NetworkMessage.Stats s ->
                 env.Emit [UpdateStats s]
             | NetworkMessage.SpawnShotTrails trails -> 
@@ -140,7 +146,16 @@ module Update =
                 }
             else
                 { model with hp = hp }
-
+        | HitByWithSlap(player, dmg, vel) ->
+            env.Emit [HitBy(player,dmg)]
+            let newVel = 
+                let t = Trafo3d.FromBasis(model.camera.camera.Right, model.camera.camera.Forward, model.camera.camera.Up, V3d.OOO)
+                model.camera.velocity + (t.Backward.TransformDir vel.XYZ)
+            {model with 
+                camera =
+                    {model.camera with velocity = newVel}
+                onFloor = false
+            }
         | UpdatePlayerPos(player, pos) ->
             { model with otherPlayers = HashMap.alter player (function Some o -> Some {o with pos=pos} | None -> Some {pos=pos;frags=0}) model.otherPlayers }
 
@@ -158,6 +173,7 @@ module Update =
         | KeyDown Keys.D1 -> { model with activeWeapon = Primary}
         | KeyDown Keys.D2 -> { model with activeWeapon = Secondary}
         | KeyDown Keys.D3 -> { model with activeWeapon = Tertiary}
+        | KeyDown Keys.D4 -> { model with activeWeapon = RocketLauncher}
         | KeyDown Keys.R ->
             let weapon = model.weapons.Item model.activeWeapon
             let updatedWeapons = 
@@ -165,9 +181,9 @@ module Update =
                 |> HashMap.add model.activeWeapon {weapon with ammo = (weapon.startReload weapon.ammo model.time)}
             {model with weapons = updatedWeapons}
         | KeyDown Keys.Back -> 
-            let respawnLocation = model.world.Bounds.Min.XYO + model.world.Bounds.RangeZ.Center * V3d.OOI + V3d.IIO + V3d(100,100,100)
+            let respawnLocation = model.world.Bounds.Min.XYO + model.world.Bounds.RangeZ.Center * V3d.OOI + V3d.IIO + V3d(100,100,60)
             let newCameraView = model.camera.camera.WithLocation(respawnLocation)
-            let modelCamera = { model.camera with camera = newCameraView  }
+            let modelCamera = { model.camera with camera = newCameraView; velocity = V3d.Zero  }
             { model with camera = modelCamera }
         | Resize s -> 
             { model with 
@@ -226,6 +242,7 @@ module Update =
                 }
 
 
+            env.Emit [UpdateProjectiles dt]
             client.send (NetworkCommand.UpdatePosition model.camera.camera.Location)
 
             if model.onFloor then
@@ -245,6 +262,27 @@ module Update =
                         }
                 }
         | UpdateAnimationState s -> {model with gunAnimationState=s}
+        | UpdateProjectiles dt -> 
+            let newProjs = 
+                Projectile.calculateHits
+                    model.projectiles
+                    model.playerName
+                    model.time
+                    dt
+                    model.world
+                    model.otherPlayers
+                    (fun e -> env.Emit [Explode e])
+            {model with projectiles = newProjs}
+        | Explode e -> 
+            let myHit, otherHits = Projectile.explode e model.playerName model.camera.camera.Location model.otherPlayers
+            match myHit with 
+            | None -> ()
+            | Some (vel,dmg) -> 
+                env.Emit [HitByWithSlap(e.Owner, dmg, vel)]
+            otherHits |> HashMap.iter (fun name (vel,dmg) -> 
+                client.send (NetworkCommand.HitWithSlap(name,dmg,vel))
+            )
+            model
         | KeyDown _ -> model
         | KeyUp _ -> model
         | MouseUp button ->
@@ -267,6 +305,8 @@ module Update =
                     {model with proj = Frustum.perspective 30.0 0.1 1000.0 (float model.size.X / float model.size.Y)}
                 | _ -> model
             | _ -> model
+        | SpawnProjectiles ps -> 
+            {model with projectiles = HashSet.union (HashSet.ofList ps) model.projectiles}
         | SpawnShotTrails trails -> 
             let nts = HashSet.union (HashSet.ofList (trails |> List.map (fun (line,dur) -> {Line=line;duration=dur;startTime=model.time}))) model.shotTrails
             {model with shotTrails = nts}
@@ -285,6 +325,21 @@ module Update =
             | false -> {model with weapons = model.weapons |> HashMap.add model.activeWeapon weapon}
             | true -> 
                 let shotRays = weapon.createHitrays model.camera.camera
+                let projectiles = 
+                    let infos = weapon.createProjectiles model.camera.camera
+                    infos |> List.map (fun i -> 
+                        {
+                            Owner = model.playerName
+                            Position = i.pos
+                            Velocity = i.vel
+                            StartTime = model.time
+                            MaxDuration = 30.0
+                            ExplosionSmallRadius = i.smallRadius
+                            ExplosionBigRadius = i.bigRadius
+                            ExplosionSmallDamage = i.smallDmg
+                            ExplosionBigDamage = i.bigDmg
+                        }
+                    )
 
                 let hittedTargets,hitPlayers,floorHits = Weapon.findHitTargets weapon.range shotRays model.world model.targets model.otherPlayers model.camera.camera
                 let playerHits = hitPlayers |> List.map (fun (i,_,p) -> i,p) |> HashMap.ofList
@@ -341,7 +396,7 @@ module Update =
                     |> HashMap.filter (fun _ t -> t.currentHp > 0)
                 let updatedWeapon = {weapon with ammo = weapon.updateAmmo weapon.ammo; lastShotTime = Some model.time }
                 
-                env.Emit [SpawnShotTrails (newTrails |> List.map (fun ti -> ti.Line,ti.duration))]
+                env.Emit [SpawnShotTrails (newTrails |> List.map (fun ti -> ti.Line,ti.duration)); SpawnProjectiles projectiles]
                 { model with
                     targets = updatedTargets
                     weapons = model.weapons |> HashMap.add model.activeWeapon updatedWeapon

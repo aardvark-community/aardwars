@@ -113,6 +113,7 @@ type NetworkCommand =
     | Connect of name : string
     | UpdatePosition of V3d
     | Hit of playerName : string * damage : float
+    | HitWithSlap of playerName : string * damage : float * slap : V3d
     | Died of byPlayer : string
     | Stats
     | SpawnShotTrails of list<Line3d * float * float>
@@ -127,6 +128,7 @@ type NetworkMessage =
     | Disconnected of playerName : string
     | Died of playerName : string
     | Hit of byPlayer : string * damage : float
+    | HitWithSlap of byPlayer : string * damage : float * slap : V3d
 
 module NetworkMessage =
 
@@ -153,6 +155,8 @@ module NetworkMessage =
             sprintf "#died %s" n
         | NetworkMessage.Hit(p,d) ->
             sprintf "#hit %s,%f" p d
+        | NetworkMessage.HitWithSlap(p,d,v) ->
+            sprintf "#hitwithslap %s,%f,%f,%f,%f" p d v.X v.Y v.Z
 
     let unpickle (str : string) =
         try
@@ -171,6 +175,8 @@ module NetworkMessage =
                     NetworkMessage.Died data.[0] |> Some
                 | "hit" ->
                     NetworkMessage.Hit (data.[0], float data.[1]) |> Some
+                | "hitwithslap" ->
+                    NetworkMessage.HitWithSlap (data.[0], float data.[1], V3d(float data.[2], float data.[3], float data.[4])) |> Some
                 | "stats" ->
                     let stats = 
                         data |> Array.map (fun s -> 
@@ -207,6 +213,7 @@ module NetworkCommand =
         | NetworkCommand.Died cause -> sprintf "#died %s" cause
         | NetworkCommand.UpdatePosition p -> sprintf "#update %f,%f,%f" p.X p.Y p.Z
         | NetworkCommand.Hit(p, d) -> sprintf "#hit %s,%f" p d
+        | NetworkCommand.HitWithSlap(p,d,v) -> sprintf "#hit %s,%f,%f,%f,%f" p d v.X v.Y v.Z
         | NetworkCommand.SpawnShotTrails trails -> 
             sprintf 
                 "#spawntrails %s" 
@@ -225,6 +232,7 @@ module NetworkCommand =
                 | "died" -> NetworkCommand.Died data.[0] |> Some
                 | "update" -> NetworkCommand.UpdatePosition(V3d(float data.[0], float data.[1], float data.[2]))|> Some
                 | "hit" -> NetworkCommand.Hit(data.[0], float data.[1]) |> Some
+                | "hitwithslap" -> NetworkCommand.HitWithSlap(data.[0], float data.[1], V3d(float data.[2], float data.[3], float data.[4])) |> Some
                 | "spawntrails" -> 
                     let trails = 
                         data |> Array.map (fun d -> 
@@ -332,6 +340,12 @@ module NetworkGroup =
                                                     match clients.TryGetValue other with
                                                     | (true, o) ->
                                                         send o (NetworkMessage.Hit(clientId, dmg))
+                                                    | _ ->
+                                                        ()
+                                                | NetworkCommand.HitWithSlap(other, dmg, vel) ->
+                                                    match clients.TryGetValue other with
+                                                    | (true, o) ->
+                                                        send o (NetworkMessage.HitWithSlap(clientId, dmg, vel))
                                                     | _ ->
                                                         ()
                                                 | NetworkCommand.Stats ->
