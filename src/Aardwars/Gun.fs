@@ -676,7 +676,7 @@ module Weapon =
                 let r = 30.0
                 let w = 10.0
                 let t2 = 4.0
-                let color = C4b.Black
+                let color = C4b.LightSeaGreen
                 ShapeList.ofListWithRenderStyle RenderStyle.NoBoundary [
                     ConcreteShape.circle color t (Circle2d(V2d.Zero, r))
                     ConcreteShape.fillRectangle color (Box2d(r, -t/2.0, r + w, t/2.0))
