@@ -162,6 +162,7 @@
     <EmbeddedResource Include="CubeMap\miramar_lf.png" />
     <EmbeddedResource Include="CubeMap\miramar_rt.png" />
     <EmbeddedResource Include="CubeMap\miramar_up.png" />
+    <Compile Include="Screenshot.fs" />
     <Compile Include="Util.fs" />
     <Compile Include="Importer.fs" />
 	  <Compile Include="CollisionDetection.fs" />

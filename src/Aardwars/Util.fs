@@ -9,6 +9,33 @@ open Adaptify
 open Aardvark.Rendering
 open Aardvark.Application
 open System
+open Screenshot
+open System.IO
+
+module GrabNextFrame =
+    open OpenTK.Graphics.OpenGL4
+
+    let task (grab : ref<int>) (callback : PixImage<byte> -> unit)= 
+        RenderTask.custom (fun (_,_,o) ->
+            let take = 
+                lock grab (fun () ->
+                    let c = grab.Value
+                    if c > 0 then
+                        grab.Value <- c - 1
+                        true
+                    else    
+                        false
+                )
+            if take then
+                let s = o.viewport.Size
+                let arr = Array.zeroCreate<byte> (s.X * s.Y * 4)
+                GL.ReadPixels(0,0,s.X, s.Y, PixelFormat.Rgba, PixelType.UnsignedByte, arr)
+
+                let img = PixImage<byte>(Col.Format.RGBA, Volume<byte>(arr, VolumeInfo(0L, V3l(s.X, s.Y, 4), V3l(4, 4*s.X, 1))))
+                callback (img.Transformed ImageTrafo.MirrorY :?> PixImage<byte>)
+        )
+
+
 
 type Environment<'msg> =
     abstract Emit : #seq<'msg> -> unit
@@ -110,7 +137,56 @@ module App =
 
         let scene = app.view env mmodel
         let task = Sg.compile' window.Runtime window.FramebufferSignature false scene
-        window.RenderTask <- task
+
+
+
+
+        let screenshot = ref 0
+        let coll = new System.Collections.Concurrent.BlockingCollection<PixImage<_>>()
+        let callback img =  
+            coll.Add img
+
+        let takeScreenshot() =
+            async {
+                do! Async.SwitchToThreadPool()
+                lock screenshot (fun () ->
+                    screenshot.Value <- screenshot.Value + 1
+                )
+                return coll.Take()
+            }
+
+
+        let credentials = Screenshot.Credentials.load ()
+
+        window.Keyboard.Down.Values.Add (fun k ->
+            match k with
+            | Keys.F12 ->
+                async {
+                    
+                    try
+                        let! img = takeScreenshot()
+                        let buffer = img.ToPngData()
+                    
+                        let dir = "screenshots"
+                        if not (Directory.Exists(dir)) then
+                            Directory.CreateDirectory(dir) |> ignore
+
+                        let n = DateTimeOffset.UtcNow
+                        let filename = sprintf "%4d%2d%2d%2d%2d%2d%3d.png" n.Year n.Month n.Day n.Hour n.Minute n.Second n.Millisecond
+                        File.WriteAllBytes(Path.Combine(dir, filename), buffer)
+                   
+                        match credentials with
+                        | Valid cs -> Screenshot.upload cs [] buffer |> ignore
+                        | _ -> ()
+                    with e ->
+                        Log.error "%A" e
+                
+                } |> Async.Start
+            | _ ->
+                ()
+        )
+
+        window.RenderTask <- RenderTask.ofList [ task; GrabNextFrame.task screenshot callback ]
         window.Run()
         env.Shutdown()
 
