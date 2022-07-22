@@ -37,27 +37,27 @@ module Projectile =
             if pi.StartTime+pi.MaxDuration > time then 
                 let p0 = pi.Position
                 let p1 = p0+dt*pi.Velocity
-                if pi.Owner = myName then 
-                    let ray = Ray3d(p0, (p1-p0).Normalized)
-                    let fr = FastRay3d(ray)
-                    let p1t = ray.GetTOfProjectedPoint p1
-                    let closestPlayerT =
-                        otherPlayers |> Seq.map (fun (_,pi) -> playerBounds.Translated pi.pos) |> Seq.choose (fun bound -> 
-                            match hitBox fr bound p1t with 
-                            | (true,t) -> Some t
-                            | (false,_) -> None
-                        )
-                        |> Seq.sort
-                        |> Seq.tryHead
-                    let closestWorldT =
-                        world.Intersections ray 0.0 p1t 
-                        |> Seq.sortBy fst 
-                        |> Seq.tryHead
-                        |> Option.map (fun (t,_) -> t)
-                    let hitT = [closestPlayerT; closestWorldT] |> List.choose id |> List.sort |> List.tryHead
-                    match hitT with 
-                    | None -> Some {pi with Position=p1}
-                    | Some hit -> 
+                let ray = Ray3d(p0, (p1-p0).Normalized)
+                let fr = FastRay3d(ray)
+                let p1t = ray.GetTOfProjectedPoint p1
+                let closestPlayerT =
+                    otherPlayers |> Seq.map (fun (_,pi) -> playerBounds.Translated pi.pos) |> Seq.choose (fun bound -> 
+                        match hitBox fr bound p1t with 
+                        | (true,t) -> Some t
+                        | (false,_) -> None
+                    )
+                    |> Seq.sort
+                    |> Seq.tryHead
+                let closestWorldT =
+                    world.Intersections ray 0.0 p1t 
+                    |> Seq.sortBy fst 
+                    |> Seq.tryHead
+                    |> Option.map (fun (t,_) -> t)
+                let hitT = [closestPlayerT; closestWorldT] |> List.choose id |> List.sort |> List.tryHead
+                match hitT with 
+                | None -> Some {pi with Position=p1}
+                | Some hit -> 
+                    if pi.Owner = myName then 
                         let hitPos = ray.GetPointOnRay hit
                         let explosion = 
                             {
@@ -69,8 +69,7 @@ module Projectile =
                                 BigDamage = pi.ExplosionBigDamage
                             }
                         emitExplosion explosion
-                        None
-                else Some {pi with Position=p1}
+                    None
             else None
         )
 
