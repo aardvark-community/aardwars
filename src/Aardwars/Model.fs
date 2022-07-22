@@ -131,6 +131,7 @@ type Model =
         size                : V2i
         camera              : CameraModel
         proj                : Frustum
+        isZoomed            : bool
         playerName          : string
         frags               : int
         moveSpeed           : float

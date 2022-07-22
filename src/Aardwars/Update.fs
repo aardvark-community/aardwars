@@ -185,7 +185,7 @@ module Update =
         | UpdatePlayerPos(player, pos) ->
             { model with otherPlayers = HashMap.alter player (function Some o -> Some {o with pos=pos} | None -> Some {pos=pos;frags=0}) model.otherPlayers }
 
-        | MouseMove delta -> model |> cam (CameraMessage.Look delta)
+        | MouseMove delta -> model |> cam (CameraMessage.Look (delta,model.isZoomed))
         | KeyDown Keys.W -> model |> cam (CameraMessage.StartMove (V3d(0.0, model.moveSpeed, 0.0)))
         | KeyUp Keys.W -> model |> cam (CameraMessage.StopMove (V3d(0.0, model.moveSpeed, 0.0)))
         | KeyDown Keys.S -> model |> cam (CameraMessage.StartMove (V3d(0.0, -model.moveSpeed, 0.0)))
@@ -366,7 +366,7 @@ module Update =
         | MouseUp button ->
             match button with
             |MouseButtons.Left -> {model with triggerHeld=false}
-            |MouseButtons.Right -> {model with proj = Frustum.perspective 110.0 0.1 1000.0 (float model.size.X / float model.size.Y)  }
+            |MouseButtons.Right -> {model with proj = Frustum.perspective 110.0 0.1 1000.0 (float model.size.X / float model.size.Y) ; isZoomed = false}
             | _ -> model
         | MouseDown button -> 
             let nm = 
@@ -378,10 +378,10 @@ module Update =
                 | MouseButtons.Right -> 
                     let weapon = model.weapons.Item model.activeWeapon
                     match weapon.name with
-                    | "Lasergun" -> {model with proj = Frustum.perspective 90.0 0.1 1000.0 (float model.size.X / float model.size.Y)}
+                    | "Lasergun" -> {model with proj = Frustum.perspective 90.0 0.1 1000.0 (float model.size.X / float model.size.Y) ; isZoomed = true}
                     | "Shotgun" -> model
                     | "Sniper" ->
-                        {model with proj = Frustum.perspective 30.0 0.1 1000.0 (float model.size.X / float model.size.Y)}
+                        {model with proj = Frustum.perspective 30.0 0.1 1000.0 (float model.size.X / float model.size.Y) ; isZoomed = true}
                     | _ -> model
                 | _ -> model
             nm 

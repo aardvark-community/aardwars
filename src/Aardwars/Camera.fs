@@ -13,7 +13,7 @@ open Aardwars
 open Aardvark.Rendering.Text
 
 type CameraMessage =
-    | Look of delta : V2d
+    | Look of delta : V2d * isZoomed : bool
     | StartMove of speed : V3d
     | StopMove of speed : V3d
     | UpdateTime of seconds : float * delta : float
@@ -30,18 +30,21 @@ module CameraController =
     
     let update (cam : CameraModel) (msg : CameraMessage) =
         match msg with
-        | CameraMessage.Look delta ->
+        | CameraMessage.Look (delta,isZoomed) ->
             let o = cam.camera
             let fw = o.Forward
             let r = o.Right
-                    
+            let factor =
+                match isZoomed with
+                | false -> 0.0025
+                | true -> 0.0005
             let dy = 
                 if Vec.dot o.Sky fw > 0.991 then max delta.Y 0.0
                 elif Vec.dot o.Sky fw < -0.991 then min delta.Y 0.0
                 else delta.Y
             let trafo =
-                M44d.Rotation(r, float dy * -0.0025 ) *
-                M44d.Rotation(V3d.OOI, float delta.X * -0.0025   )
+                M44d.Rotation(r, float dy * -factor) *
+                M44d.Rotation(V3d.OOI, float delta.X * -factor   )
             let newForward = trafo.TransformDir fw |> Vec.normalize
                     
             let p = o.WithForward newForward
