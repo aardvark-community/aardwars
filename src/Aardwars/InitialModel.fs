@@ -76,6 +76,7 @@ module Game =
             deaths = 0
             color = "yellow"
             triggerHeld=false
+            killfeed=[0.0,"GERÄTBLAAAAAA"]
         }
 
     let view (client : NetworkClient) (env : Environment<Message>) (model : AdaptiveModel) =
@@ -166,7 +167,7 @@ module Game =
                     env.Window 
                     (model.camera.velocity |> AVal.map (fun v -> sprintf "%.2f" v.Length)) 
                     (AVal.constant true)
-            
+            let scoreaboardSg = Text.scoreboard env.Window model.frags model.deaths model.color model.playerName model.otherPlayers
             let statsSg = 
 
                 let weapon = 
@@ -189,12 +190,12 @@ module Game =
 
                 Text.weaponTextSg env.Window text
 
-            [ velocitySg; statsSg; Text.scoreboard env.Window model.frags model.frags model.color model.playerName model.otherPlayers ] |> Sg.ofList
+            [ velocitySg; statsSg; scoreaboardSg] |> Sg.ofList
                 
         let trailsSg = Trails.sg model.shotTrails model.time |> Sg.pass Passes.pass1
         let projectileSg = Projectile.scene model.projectiles
         let explosionSg = Projectile.explosionScene model.time model.explosionAnimations
-
+        let killfeedSg = Text.killfeed env.Window model.time model.killfeed
         let targetsSg =
             model.targets 
             |> AMap.toASet 
@@ -227,11 +228,10 @@ module Game =
                 hits
                 projectileSg
                 explosionSg
-                medipackSg
+                killfeedSg
                 Skybox.scene
             ]
             |> Sg.viewTrafo (model.camera.camera |> AVal.map CameraView.viewTrafo)
             |> Sg.projTrafo (model.proj |> AVal.map Frustum.projTrafo)
-        //Sg.ofList [worldSg; gunSg; textSg; targetsSg; trailsSg; otherPlayers; hits; Skybox.scene;medipackSg]
 
 

@@ -14,24 +14,7 @@ open Aardvark.Rendering.Text
 
 module Trails =
     let random = System.Random ()
-    module Shader =
-        open FShade
-
-        type TrailVertex = 
-            {
-                [<Color>] c : V4d
-                [<Semantic("Alphas")>] t : float32
-            }
-
-        let adjustAlpha (v : TrailVertex) =
-            vertex {
-                return {v with c = V4d(v.c.X, v.c.Y, v.c.Z, float v.t)}
-            }
-        let sgAlpha (v : TrailVertex) =
-            fragment {
-                let a : float32 = uniform?Alpha
-                return V4d(v.c.X, v.c.Y, v.c.Z, float a)
-            }
+    
     let sg (shotTrails : aset<TrailInfo>) (currentTime : aval<float>)=
         
         let verts =

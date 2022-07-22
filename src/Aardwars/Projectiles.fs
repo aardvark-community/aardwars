@@ -152,7 +152,7 @@ module Projectile =
             |> Sg.vertexAttribute "Alphas" alps
             |> Sg.shader{
                 do! DefaultSurfaces.trafo
-                do! Trails.Shader.adjustAlpha
+                do! Elm.Shader.adjustAlpha
                 do! DefaultSurfaces.vertexColor
                 do! DefaultSurfaces.thickLine
             }
@@ -216,7 +216,7 @@ module Projectile =
         |> Sg.shader {
             do! DefaultSurfaces.trafo
             do! DefaultSurfaces.sgColor
-            do! Trails.Shader.sgAlpha
+            do! Elm.Shader.sgAlpha
         }
         |> Sg.blendMode' BlendMode.Blend
         |> Sg.pass Passes.pass1
