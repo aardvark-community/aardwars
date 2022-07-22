@@ -348,7 +348,7 @@ module Update =
                 | MouseButtons.Left -> 
                     let messages = [Shoot]
                     env.Emit messages
-                    model
+                    {model with triggerHeld=true}
                 | MouseButtons.Right -> 
                     let weapon = model.weapons.Item model.activeWeapon
                     match weapon.name with
@@ -358,7 +358,7 @@ module Update =
                         {model with proj = Frustum.perspective 30.0 0.1 1000.0 (float model.size.X / float model.size.Y)}
                     | _ -> model
                 | _ -> model
-            {nm with triggerHeld=true}
+            nm 
         | SpawnProjectiles ps -> 
             let ps = ps |> List.map (fun pi -> {pi with StartTime=model.time})
             {model with projectiles = HashSet.union (HashSet.ofList ps) model.projectiles}
