@@ -16,6 +16,7 @@ type Message =
     | MouseMove of delta : V2d
     | MouseDown of button : MouseButtons
     | MouseUp of button : MouseButtons
+    | MouseScroll of scroll : float
     | KeyDown of key : Keys
     | KeyUp of key : Keys
     | Resize of newSize : V2i
@@ -94,6 +95,12 @@ module Update =
         win.Mouse.Up.Values.Add(fun b -> 
             env.Emit [ MouseUp b ]
         )
+
+        win.Mouse.Scroll.Values.Add(fun b ->
+            env.Emit [ MouseScroll b ]
+        )
+
+
         
         let sw = System.Diagnostics.Stopwatch.StartNew()
         let mutable last = sw.Elapsed.TotalSeconds
@@ -337,6 +344,25 @@ module Update =
             {model with explosionAnimations = model.explosionAnimations |> HashSet.add anim}
         | KeyDown _ -> model
         | KeyUp _ -> model
+        | MouseScroll x -> 
+            let weaponSwitch =
+                match x < 0 with
+                | true -> 
+                   match  model.activeWeapon with
+                   | LaserGun -> Shotgun
+                   | Shotgun -> Sniper
+                   | Sniper -> RainbowGun
+                   | RainbowGun -> RocketLauncher
+                   | RocketLauncher -> LaserGun
+                | false -> 
+                    match model.activeWeapon with
+                    | LaserGun -> RocketLauncher
+                    | Shotgun -> LaserGun
+                    | Sniper -> Shotgun
+                    | RainbowGun -> Sniper
+                    | RocketLauncher -> RainbowGun
+            {model with activeWeapon = weaponSwitch}
+
         | MouseUp button ->
             match button with
             |MouseButtons.Left -> {model with triggerHeld=false}
