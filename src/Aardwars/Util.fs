@@ -28,7 +28,20 @@ type App<'model, 'mmodel, 'message> =
 
 
 module App =
-    
+    open System.Net
+    open System.Net.Sockets
+    let myIps = 
+        let n = 
+            Dns.GetHostEntry(Dns.GetHostName()).AddressList
+            |> Array.choose (fun ip -> 
+                if ip.AddressFamily=AddressFamily.InterNetwork then
+                    Some (ip.ToString())
+                else 
+                    None
+            )
+        printfn "my IPs: %A" n
+        n
+    let port = 7331
     let inline create (initial : Environment<'message> -> 'model) (update : Environment<'message> -> 'model -> 'message -> 'model) (view : Environment<'message> -> 'mmodel -> ISg) =
         {
             initial = initial
@@ -37,8 +50,6 @@ module App =
             unpersist = Unpersist.instance
         }
     let colors = [|"yellow"; "pink"; "red"; "purple";  "orange"; "green"; "blue"; "white"; "black"|]
-
-
 
     let run (window : IRenderWindow) (app : App<'model, 'mmodel, 'message>) =
         let messageQueue = new BlockingCollection<seq<'message>>()

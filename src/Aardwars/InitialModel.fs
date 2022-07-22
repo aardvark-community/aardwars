@@ -75,6 +75,7 @@ module Game =
             color = "yellow"
             triggerHeld=false
             killfeed=[]
+            tabDown=false
         }
 
     let view (client : NetworkClient) (env : Environment<Message>) (model : AdaptiveModel) =
@@ -165,7 +166,15 @@ module Game =
                     env.Window 
                     (model.camera.velocity |> AVal.map (fun v -> sprintf "%.2f" v.Length)) 
                     (AVal.constant true)
-            let scoreaboardSg = Text.scoreboard env.Window model.frags model.deaths model.color model.playerName model.otherPlayers
+            let scoreboardSg = 
+                Text.scoreboard 
+                    env.Window 
+                    model.tabDown 
+                    model.frags 
+                    model.deaths 
+                    model.color 
+                    model.playerName 
+                    model.otherPlayers
             let statsSg = 
 
                 let weapon = 
@@ -188,7 +197,7 @@ module Game =
 
                 Text.weaponTextSg env.Window text
 
-            [ velocitySg; statsSg; scoreaboardSg] |> Sg.ofList
+            [ velocitySg; statsSg; scoreboardSg] |> Sg.ofList
                 
         let trailsSg = Trails.sg model.shotTrails model.time |> Sg.pass Passes.pass1
         let projectileSg = Projectile.scene model.projectiles

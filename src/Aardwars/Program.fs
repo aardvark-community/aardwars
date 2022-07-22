@@ -21,8 +21,8 @@ let main (args : string[]) =
         if args.Length > 0 then
             args.[0], int args.[1]
         else
-            Elm.NetworkGroup.server 7331
-            "localhost", 7331
+            Elm.NetworkGroup.server Elm.App.port
+            "localhost", Elm.App.port
 
     Aardvark.Init()
     let app = new OpenGlApplication(true, DebugLevel.None)

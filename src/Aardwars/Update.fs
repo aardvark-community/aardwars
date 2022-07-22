@@ -200,6 +200,8 @@ module Update =
         | KeyUp Keys.D -> model |> cam (CameraMessage.StopMove (V3d(model.moveSpeed, 0.0, 0.0)))
         | KeyDown Keys.Space -> model |> cam (CameraMessage.StartMove (V3d(0.0, 0.0, 10.0)))
         | KeyUp Keys.Space -> model
+        | KeyDown Keys.Tab -> {model with tabDown=true}
+        | KeyUp Keys.Tab -> {model with tabDown=false}
         | KeyDown Keys.D1 -> { model with activeWeapon = LaserGun}
         | KeyDown Keys.D2 -> { model with activeWeapon = Shotgun}
         | KeyDown Keys.D3 -> { model with activeWeapon = Sniper}
