@@ -14,13 +14,11 @@ open Aardvark.Rendering.Text
 
 module Game =
 
-    let intitial (env : Environment<Message>) = 
+    let intitial (texturesPath : string) (mapPath : string) (env : Environment<Message>) = 
         
         //let world = World.randomGenerated 0 (V2i(150,150)) 1.75
         let world = 
-            let textures = @"C:\minecraft\textures"
-            let map = @"C:\minecraft\Jakobs KitPvP"
-            let atlas, tree = MinecraftWorld.load env.Runtime textures map
+            let atlas, tree = MinecraftWorld.load env.Runtime texturesPath mapPath
             World.minecraft env.Window atlas tree 1.75
         let random = System.Random()
 
@@ -84,6 +82,7 @@ module Game =
             color = "yellow"
             triggerHeld=false
             killfeed=[]
+            tabDown=false
         }
         
     let playerModels = 
@@ -186,7 +185,15 @@ module Game =
                     env.Window 
                     (model.camera.velocity |> AVal.map (fun v -> sprintf "%.2f" v.Length)) 
                     (AVal.constant true)
-            let scoreaboardSg = Text.scoreboard env.Window model.frags model.deaths model.color model.playerName model.otherPlayers
+            let scoreboardSg = 
+                Text.scoreboard 
+                    env.Window 
+                    model.tabDown 
+                    model.frags 
+                    model.deaths 
+                    model.color 
+                    model.playerName 
+                    model.otherPlayers
             let statsSg = 
 
                 let weapon = 
@@ -209,7 +216,7 @@ module Game =
 
                 Text.weaponTextSg env.Window text
 
-            [ velocitySg; statsSg; scoreaboardSg] |> Sg.ofList
+            [ velocitySg; statsSg; scoreboardSg] |> Sg.ofList
                 
         let trailsSg = Trails.sg model.shotTrails model.time |> Sg.pass Passes.pass1
         let projectileSg = Projectile.scene model.projectiles

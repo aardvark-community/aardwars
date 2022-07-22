@@ -15,12 +15,14 @@ open FShade
 [<EntryPoint>]
 let main (args : string[]) =
 
+    let texturesPath, mapPath = Elm.MapAssets.getFromEmbeddedResources() 
+
     let server, port =
         if args.Length > 0 then
             args.[0], int args.[1]
         else
-            Elm.NetworkGroup.server 7331
-            "localhost", 7331
+            Elm.NetworkGroup.server Elm.App.port
+            "localhost", Elm.App.port
 
     Aardvark.Init()
     let app = new OpenGlApplication(true, DebugLevel.None)
@@ -33,7 +35,8 @@ let main (args : string[]) =
     let client = Elm.NetworkGroup.client server port
 
     do 
-        let app = Elm.App.create Elm.Game.intitial (Update.update client) (Elm.Game.view client)
+        let initial = Elm.Game.intitial texturesPath mapPath
+        let app = Elm.App.create initial (Update.update client) (Elm.Game.view client)
         Elm.App.run win app
         exit 0
     0

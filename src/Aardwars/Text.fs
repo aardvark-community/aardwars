@@ -8,7 +8,7 @@ open Aardvark.Application
 open Aardvark.Rendering.Text
 
 module Text = 
-    let scoreboard (win : IRenderWindow) (myFrags : aval<int>) (myDeaths : aval<int>) (myColor : aval<string>) (myName : aval<string>) (others : amap<string,OtherPlayerInfo>) =
+    let scoreboard (win : IRenderWindow) (tabDown : aval<bool>) (myFrags : aval<int>) (myDeaths : aval<int>) (myColor : aval<string>) (myName : aval<string>) (others : amap<string,OtherPlayerInfo>) =
         let textProj =
             win.Sizes |> AVal.map (fun s ->
                 Trafo3d.Scale(float s.Y / float s.X, 1.0, 1.0)
@@ -20,6 +20,7 @@ module Text =
             let text = 
                 AVal.custom (fun tok -> 
                     let os = others.Content.GetValue(tok)
+                    let tabDown = tabDown.GetValue tok
                     let myfrags = myFrags.GetValue(tok)
                     let myName = myName.GetValue tok
                     let myDeaths = myDeaths.GetValue tok
@@ -31,10 +32,22 @@ module Text =
                         |> Seq.sortByDescending (fun (_,(f,_,_)) -> f)
                         |> Seq.toArray
                     let longest = res |> Array.map (fst >> String.length) |> Array.max
-                    res |> Array.map (fun (n,(f,d,c)) -> 
-                        let n = n+System.String(' ',longest-n.Length)
-                        sprintf "%s %d %d %s" n f d c
-                    ) |> String.concat "\n"
+                    let playerLines =
+                        res |> Array.map (fun (n,(f,d,c)) -> 
+                            let n = n+System.String(' ',longest-n.Length)
+                            if tabDown then 
+                                sprintf "%s %d %d %s" n f d c
+                            else 
+                                sprintf "%s %d" n f
+                        ) |> String.concat "\n"
+                    let ips =
+                        [
+                            yield! Elm.App.myIps
+                            yield sprintf "Port: %d" Elm.App.port
+                        ] |> String.concat "\n"
+                    
+                    if tabDown then [playerLines;ips] |> String.concat "\n"
+                    else playerLines
                 )
             let shape = text |> AVal.map (fun t -> font.Layout(C4b.White, t))
 
@@ -79,7 +92,7 @@ module Text =
 
         (feed) |> AVal.map (fun lines -> 
             lines |> List.mapi (fun i (startTime,line) -> 
-                let alpha = time |> AVal.map (fun time -> clamp 0.0 1.0 (1.0-(time-startTime)/3.5))
+                let alpha = time |> AVal.map (fun time -> clamp 0.0 1.0 (1.0-(time-startTime)/6.0))
                 let shape = line |> AVal.constant |> AVal.map (fun t -> font.Layout(C4f(1.0f,1.0f,1.0f,1.0f).ToC4b(), t))
                 let trafo = 
                     (win.Sizes, shape) ||> AVal.map2 (fun s shape ->

@@ -92,13 +92,12 @@ module Shader =
                     n = n
             }
         }
-
         
     let texy (v : Vertex) =
         fragment {
             let color = sammy.Sample(v.tc, v.texId)
+            
             if color.W < 0.05 then discard()
-
 
             return color
         }

@@ -150,6 +150,7 @@ type Model =
         explosionAnimations : HashSet<ExplosionAnimationInfo>
         triggerHeld         : bool
         killfeed            : list<float*string>
+        tabDown             : bool
     }
 
 
