@@ -164,6 +164,7 @@ module Update =
             let hp = model.currentHp - dmg
             if hp <= 0.0 then
                 client.send (NetworkCommand.Died(player,model.playerName,model.activeWeapon |> WeaponType.pickle))
+                env.Emit [KillfeedMessage(player,model.playerName,model.activeWeapon)]
 
                 let b = model.world.Bounds
                 let respawnLocation = 
@@ -372,7 +373,6 @@ module Update =
             |MouseButtons.Right -> {model with proj = Frustum.perspective 110.0 0.1 1000.0 (float model.size.X / float model.size.Y) ; isZoomed = false}
             | _ -> model
         | MouseDown button -> 
-            let model =  {model with killfeed=(model.time,"asduofhas")::model.killfeed}
             let nm = 
                 match button with
                 | MouseButtons.Left -> 
