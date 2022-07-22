@@ -66,6 +66,13 @@ module Game =
             shotTrails = HashSet.empty
             gunAnimationState = AnimationState.initial
             otherPlayers = HashMap.empty
+                //["sadasd",
+                //                                {
+                //                                    color = "blue"
+                //                                    pos = center
+                //                                    frags = 0
+                //                                    deaths = 0
+                //                                }]
             currentHp = 100
             maxHp = 100
             hitAnimations = HashSet.empty
@@ -76,9 +83,21 @@ module Game =
             deaths = 0
             color = "yellow"
             triggerHeld=false
-            killfeed=[0.0,"GERÄTBLAAAAAA"]
+            killfeed=[]
         }
-
+        
+    let playerModels = 
+        HashMap.ofList [
+            let s = "black" in yield s, Import.importPlayer "player" s
+            let s = "blue" in yield s, Import.importPlayer "player" s
+            let s = "green" in yield s, Import.importPlayer "player" s
+            let s = "orange" in yield s, Import.importPlayer "player" s
+            let s = "pink" in yield s, Import.importPlayer "player" s
+            let s = "purple" in yield s, Import.importPlayer "player" s
+            let s = "red" in yield s, Import.importPlayer "player" s
+            let s = "white" in yield s, Import.importPlayer "player" s
+            let s = "yellow" in yield s, Import.importPlayer "player" s
+        ]
     let view (client : NetworkClient) (env : Environment<Message>) (model : AdaptiveModel) =
         
         Update.events client env
@@ -157,8 +176,8 @@ module Game =
                 (model.gunAnimationState |> AVal.map (fun s -> s.lastFw))
         
 
-        let medipackSg =
-            PowerUps.scene model.world
+        //let medipackSg =
+        //    PowerUps.scene model.world
 
 
         let textSg = 
@@ -206,11 +225,33 @@ module Game =
         let otherPlayers =
             let trafos = 
                 model.otherPlayers 
+                |> AMap.map (fun name info -> 
+                    Trafo3d.Scale(1.0/5.0) *
+                    Trafo3d.FromBasis(V3d.IOO,V3d.OOI,V3d.OIO,V3d.OOO) *
+                    Trafo3d.Translation(0.0,0.0,-1.7) *
+                    Trafo3d.Translation(info.pos)
+                )
+            let models = 
+                model.otherPlayers
+                |> AMap.map (fun name info -> playerModels.[info.color])
+            models |> AMap.toASet |> ASet.map (fun (name,model) -> 
+                model |> Sg.trafo (trafos |> AMap.find name)
+            )
+            |> Sg.set
+            |> Sg.shader {
+                do! DefaultSurfaces.trafo
+                do! DefaultSurfaces.diffuseTexture
+            }
+
+        let hitBoxes =
+            let trafos = 
+                model.otherPlayers 
                 |> AMap.toAVal
                 |> AVal.map (HashMap.toValueArray >> Array.map (fun pi -> pi.pos |> Trafo3d.Translation))
 
             Sg.box' C4b.Yellow playerBounds
             |> Sg.instanced trafos
+            |> Sg.fillMode' FillMode.Line            
             |> Sg.shader {
                 do! DefaultSurfaces.trafo
                 do! DefaultSurfaces.simpleLighting
@@ -225,6 +266,7 @@ module Game =
                 targetsSg
                 trailsSg
                 otherPlayers
+                hitBoxes
                 hits
                 projectileSg
                 explosionSg

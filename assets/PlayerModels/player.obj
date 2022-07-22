@@ -1,6 +1,5 @@
 # Blender v3.2.1 OBJ File: 'player.blend'
 # www.blender.org
-mtllib player_pink.mtl
 o Sphere_Sphere.002
 v 0.000000 0.954116 -0.309017
 v 1.622311 19.089909 0.193776
