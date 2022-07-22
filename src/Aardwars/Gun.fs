@@ -63,7 +63,8 @@ module WeaponType =
 type TrailInfo = 
     {
         color       :  C4b
-        line        :  Line3d
+        realLine    :  Line3d
+        offsetLine  :  Line3d
         startTime   :  float
         duration    :  float
     }
@@ -86,6 +87,11 @@ type OtherPlayerInfo =
     {
         color : string
         pos : V3d
+        fw : V3d
+        up : V3d
+        ri : V3d
+        weapon : WeaponType
+        reloading : bool
         frags : int
         deaths : int
     }
@@ -233,10 +239,12 @@ module Weapon =
                 let p0 = shotRay.Origin + cv.Right * 0.7 + cv.Down * 0.3 + cv.Forward * 1.0
                 
                 let p1 = shotRay.Origin + range * shotRay.Direction
-                let line = Line3d(p0, p1)
+                let rline = Line3d(shotRay.Origin, p1)
+                let oline = Line3d(p0, p1)
                 {
                     color = C4b.Beige
-                    line = line
+                    realLine = rline
+                    offsetLine = oline
                     startTime = time
                     duration = 1.0
                 }
@@ -302,10 +310,12 @@ module Weapon =
                 let p0 = shotRay.Origin + cv.Right * 0.3 + cv.Down * 0.15 + cv.Forward * 0.6
                 
                 let p1 = shotRay.Origin + range * shotRay.Direction
-                let line = Line3d(p0, p1)
+                let rline = Line3d(shotRay.Origin, p1)
+                let oline = Line3d(p0, p1)
                 {
                     color = C4b.Beige
-                    line = line
+                    realLine = rline
+                    offsetLine = oline
                     startTime = time
                     duration = 0.5
                 }
@@ -365,10 +375,12 @@ module Weapon =
                 let p0 = shotRay.Origin + cv.Right * 0.7 + cv.Down * 0.4 + cv.Forward * 1.0
                 
                 let p1 = shotRay.Origin + range * shotRay.Direction
-                let line = Line3d(p0, p1)
+                let rline = Line3d(shotRay.Origin, p1)
+                let oline = Line3d(p0, p1)
                 {
                     color = C4b.Beige
-                    line = line
+                    realLine = rline
+                    offsetLine = oline
                     startTime = time
                     duration = 1.0
                 }
@@ -437,11 +449,13 @@ module Weapon =
                 rays |> List.map(fun shotRay ->
                     let p0 = shotRay.Origin + cv.Right * 0.7 + cv.Down * 0.4 + cv.Forward * 1.0
                     let p1 = shotRay.Origin + range * shotRay.Direction
-                    let line = Line3d(p0, p1)
+                    let rline = Line3d(shotRay.Origin, p1)
+                    let oline = Line3d(p0, p1)
                     let color = (Elm.Shader.hsv2rgb (rand.UniformDouble()) 1.0 1.0).ToC4f().ToC4b()
                     {
                         color = color
-                        line = line
+                        realLine = rline
+                        offsetLine = oline
                         startTime = time
                         duration = 1.0
                     }
@@ -540,6 +554,79 @@ module Weapon =
             waitTimeBetweenShots = 0.05
         }
 
+    let gunModel (activeWeapon : aval<WeaponType>) (isReloading : aval<bool>) (gunMotionTrafo : aval<Trafo3d>)=
+        let modelTrafo = 
+            activeWeapon |> AVal.map (fun a -> 
+                match a with 
+                | LaserGun -> 
+                    Trafo3d.Scale(1.0,1.0,-1.0) *
+                    Trafo3d.Scale(0.25) *
+                    Trafo3d.Translation(1.0,-1.0,-1.0)
+                | Shotgun -> 
+                    Trafo3d.Scale(1.0,1.0,-1.0) *
+                    Trafo3d.Scale(0.18) *
+                    Trafo3d.Translation(1.5,-1.0,-1.8)
+                | Sniper ->
+                    Trafo3d.Scale(1.0,1.0,1.0) *
+                    Trafo3d.Scale(0.3) *
+                    Trafo3d.Translation(1.5,-1.0,-2.0)
+                | RocketLauncher -> 
+                    //Trafo3d.RotationY(-1.5707963268) *
+                    Trafo3d.Scale(1.0,1.0,1.0) *
+                    Trafo3d.Scale(0.3) *
+                    Trafo3d.Translation(1.5,-1.0,-2.25)  
+                | RainbowGun ->
+                    Trafo3d.Scale(1.0,1.0,1.0) *
+                    Trafo3d.Scale(0.3) *
+                    Trafo3d.Translation(1.15,-1.0,-1.5)
+            )
+
+        let modelSurface =
+            Sg.shader {
+                do! DefaultSurfaces.trafo
+                do! DefaultSurfaces.diffuseTexture
+                do! 
+                    (fun (v : Effects.Vertex) -> 
+                        fragment {
+                            let d : float32 = uniform?Dark
+                            if d > 0.5f then return V4d(v.c.X ** 2.0, v.c.Y ** 2.0, v.c.Z ** 2.0, 1.0)
+                            else return V4d(v.c.X ** 0.5, v.c.Y ** 0.5, v.c.Z ** 0.5, 1.0)
+                        }
+                    )
+                do! DefaultSurfaces.simpleLighting
+            }
+            >> Sg.uniform "Dark" (isReloading |> AVal.map (fun r -> if r then 1.0f else 0.0f))
+                
+        let lg =
+            Import.importGun("gun") 
+        let sg = 
+            Import.importGun("shotgun")
+        let sn =
+            Import.importGun("sniper")
+        let rg =
+            Import.importGun("rainbowgun")
+        let rl = 
+            Import.importGun("rocketlauncher")
+        //activeWeapon
+        //|> AVal.map (function 
+        //    | LaserGun ->       lg |> modelSurface
+        //    | Shotgun ->        sg |> modelSurface
+        //    | Sniper ->         sn |> modelSurface
+        //    | RainbowGun ->     rg |> modelSurface
+        //    | RocketLauncher -> rl |> modelSurface
+        //)
+        //|> Sg.dynamic
+
+        Sg.ofList [
+            lg |> modelSurface |> Sg.onOff (activeWeapon |> AVal.map (fun aw -> aw=LaserGun      ))
+            sg |> modelSurface |> Sg.onOff (activeWeapon |> AVal.map (fun aw -> aw=Shotgun       ))
+            sn |> modelSurface |> Sg.onOff (activeWeapon |> AVal.map (fun aw -> aw=Sniper        ))
+            rg |> modelSurface |> Sg.onOff (activeWeapon |> AVal.map (fun aw -> aw=RainbowGun    ))
+            rl |> modelSurface |> Sg.onOff (activeWeapon |> AVal.map (fun aw -> aw=RocketLauncher))
+        ]
+        |> Sg.trafo gunMotionTrafo
+        |> Sg.trafo modelTrafo
+
     let scene 
         (emitGunT : V3d -> V3d -> unit)
         (win : IRenderWindow) 
@@ -601,70 +688,8 @@ module Weapon =
                 Trafo3d.Translation(tx,0.0,ty)
             )
             
-        let modelTrafo = 
-            activeWeapon |> AVal.map (fun a -> 
-                match a with 
-                | LaserGun -> 
-                    Trafo3d.Scale(1.0,1.0,-1.0) *
-                    Trafo3d.Scale(0.25) *
-                    Trafo3d.Translation(1.0,-1.0,-1.0)
-                | Shotgun -> 
-                    Trafo3d.Scale(1.0,1.0,-1.0) *
-                    Trafo3d.Scale(0.18) *
-                    Trafo3d.Translation(1.5,-1.0,-1.8)
-                | Sniper ->
-                    Trafo3d.Scale(1.0,1.0,1.0) *
-                    Trafo3d.Scale(0.3) *
-                    Trafo3d.Translation(1.5,-1.0,-2.0)
-                | RocketLauncher -> 
-                    //Trafo3d.RotationY(-1.5707963268) *
-                    Trafo3d.Scale(1.0,1.0,1.0) *
-                    Trafo3d.Scale(0.3) *
-                    Trafo3d.Translation(1.5,-1.0,-2.25)  
-                | RainbowGun ->
-                    Trafo3d.Scale(1.0,1.0,1.0) *
-                    Trafo3d.Scale(0.3) *
-                    Trafo3d.Translation(1.15,-1.0,-1.5)
-            )
-
-        let modelSurface =
-            Sg.shader {
-                do! DefaultSurfaces.trafo
-                do! DefaultSurfaces.diffuseTexture
-                do! 
-                    (fun (v : Effects.Vertex) -> 
-                        fragment {
-                            let d : float32 = uniform?Dark
-                            if d > 0.5f then return V4d(v.c.X ** 2.0, v.c.Y ** 2.0, v.c.Z ** 2.0, 1.0)
-                            else return V4d(v.c.X ** 0.5, v.c.Y ** 0.5, v.c.Z ** 0.5, 1.0)
-                        }
-                    )
-                do! DefaultSurfaces.simpleLighting
-            }
-            >> Sg.uniform "Dark" (isReloading |> AVal.map (fun r -> if r then 1.0f else 0.0f))
-                
-        let lg =
-            Import.importGun("gun") 
-        let sg = 
-            Import.importGun("shotgun")
-        let sn =
-            Import.importGun("sniper")
-        let rg =
-            Import.importGun("rainbowgun")
-        let rl = 
-            Import.importGun("rocketlauncher")
-        let task =  
-            activeWeapon
-            |> AVal.map (function 
-                | LaserGun -> lg |> modelSurface
-                | Shotgun -> sg |> modelSurface
-                | Sniper -> sn |> modelSurface
-                | RainbowGun -> rg |> modelSurface
-                | RocketLauncher -> rl |> modelSurface
-            )
-            |> Sg.dynamic
-            |> Sg.trafo gunMotionTrafo
-            |> Sg.trafo modelTrafo
+        let task = 
+            gunModel activeWeapon isReloading gunMotionTrafo
             |> Sg.viewTrafo (AVal.constant Trafo3d.Identity)
             |> Sg.projTrafo gunProjection
             |> Sg.cullMode' CullMode.None

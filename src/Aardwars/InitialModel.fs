@@ -239,12 +239,18 @@ module Game =
             let trafos = 
                 model.otherPlayers 
                 |> AMap.map (fun name info -> 
+                    let xyangle = 
+                        let a = info.fw.XYO
+                        let b = V3d.IOO
+                        (atan2 (a.X*b.Y - a.Y*b.X) (a.X*b.X + a.Y*b.Y))
+                    
                     Trafo3d.Scale(1.0/13.25) *
                     Trafo3d.FromBasis(V3d.IOO,V3d.OOI,V3d.OIO,V3d.OOO) *
-                    //Trafo3d.RotationZ Constant.Pi *
+                    Trafo3d.RotationZ -xyangle *
                     Trafo3d.Translation(0.0,0.0,-1.7) *
                     Trafo3d.Translation(info.pos)
                 )
+
             let whiteness = 
                 model.hitEnemyIndicatorInstances
                 |> AMap.map (fun _ st -> 
@@ -253,24 +259,47 @@ module Game =
             let models = 
                 model.otherPlayers
                 |> AMap.map (fun name info -> playerModels.[info.color])
+            let ii = AVal.constant Trafo3d.Identity
+            let gunTrafos = 
+                model.otherPlayers |> AMap.map (fun _ i -> 
+                    let info = i
+                    Trafo3d.Scale(1.0/2.5) *
+                    Trafo3d.FromBasis(i.fw,i.ri,i.up,i.pos)
+                )
+            let gunTypes = 
+                model.otherPlayers |> AMap.map (fun name info -> info.weapon)
+            let gunReloadings = 
+                model.otherPlayers |> AMap.map (fun name info -> info.reloading)
+            let guns = 
+                model.otherPlayers |> AMap.map (fun name info -> 
+                    let trafo = gunTrafos |> AMap.find name
+                    let gun = gunTypes |> AMap.find name
+                    let rld = gunReloadings |> AMap.find name
+                    Weapon.gunModel gun rld ii
+                    |> Sg.trafo trafo
+                )
+                |> AMap.toASetValues
+                |> Sg.set
 
-            models |> AMap.toASet |> ASet.map (fun (name,model) -> 
-                let isWhite = 
-                    (whiteness |> AMap.tryFind name |> AVal.bind (fun o -> o |> Option.defaultValue (AVal.constant false)))
-                    |> AVal.map (fun b -> 
-                        if b then 1.0f else 0.0f
-                    )
-                model 
-                |> Sg.trafo (trafos |> AMap.find name)
-                |> Sg.uniform "VollgasWhite" isWhite
-            )
-            |> Sg.set
-            |> Sg.shader {
-                do! DefaultSurfaces.trafo
-                do! DefaultSurfaces.diffuseTexture
-                do! DefaultSurfaces.simpleLighting
-                do! Shader.vollgasWhite
-            }
+            let players = 
+                models |> AMap.toASet |> ASet.map (fun (name,model) -> 
+                    let isWhite = 
+                        (whiteness |> AMap.tryFind name |> AVal.bind (fun o -> o |> Option.defaultValue (AVal.constant false)))
+                        |> AVal.map (fun b -> 
+                            if b then 1.0f else 0.0f
+                        )
+                    model 
+                    |> Sg.trafo (trafos |> AMap.find name)
+                    |> Sg.uniform "VollgasWhite" isWhite
+                )
+                |> Sg.set
+                |> Sg.shader {
+                    do! DefaultSurfaces.trafo
+                    do! DefaultSurfaces.diffuseTexture
+                    do! DefaultSurfaces.simpleLighting
+                    do! Shader.vollgasWhite
+                }
+            Sg.ofList[players]
 
         let hitBoxes =
             let trafos = 

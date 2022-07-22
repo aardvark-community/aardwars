@@ -28,7 +28,7 @@ type Message =
     | Explode of ExplosionInfo
     | CreateExplosionAnimation of ExplosionAnimationInfo
     | Shoot
-    | UpdatePlayerPos of string * V3d
+    | UpdatePlayerPos of string * pos:V3d*fw:V3d*up:V3d*ri:V3d*w:int*rld:bool
     | HitBy of string * float * V3d * WeaponType
     | HitByWithSlap of string * float * V3d * V3d * WeaponType
     | UpdateStats of Map<string,(int*int*string)>
@@ -53,8 +53,8 @@ module Update =
     
         client.receive.Add (fun msg ->
             match msg with
-            | NetworkMessage.UpdatePosition(player, pos) ->
-                env.Emit [UpdatePlayerPos(player, pos)]
+            | NetworkMessage.UpdatePosition(player,pos,fw,up,ri,w,rld) ->
+                env.Emit [UpdatePlayerPos(player,pos,fw,up,ri,w,rld)]
             | NetworkMessage.Hit(player, dmg, sd,w) ->
                 env.Emit [HitBy(player, dmg, sd, WeaponType.unpickle w)]
             | NetworkMessage.HitWithSlap(player, dmg, vel, sd,w) ->
@@ -193,8 +193,9 @@ module Update =
                 camera =
                     {model.camera with blastVelocity = model.camera.blastVelocity + vel}
             }
-        | UpdatePlayerPos(player, pos) ->
-            { model with otherPlayers = HashMap.alter player (function Some o -> Some {o with pos=pos} | None -> Some {pos=pos;frags=0;deaths=0;color="yellow"}) model.otherPlayers }
+        | UpdatePlayerPos(player, pos, fw, up, ri, w, rld) ->
+            let w = WeaponType.unpickle w
+            { model with otherPlayers = HashMap.alter player (function Some o -> Some {o with pos=pos;fw=fw;weapon=w} | None -> Some {pos=pos;fw=fw;up=up;ri=ri;reloading=rld;weapon=w;frags=0;deaths=0;color="yellow"}) model.otherPlayers }
 
         | MouseMove delta -> model |> cam (CameraMessage.Look (delta,model.isZoomed))
         | KeyDown Keys.W -> model |> cam (CameraMessage.StartMove (V3d(0.0, model.moveSpeed, 0.0)))
@@ -237,7 +238,7 @@ module Update =
         | UpdateStats s -> 
             let (myKills,myDeaths,myColor) = s |> Map.tryFind model.playerName |> Option.defaultValue (0,0,"yellow")
             let newOthers = 
-                (model.otherPlayers, s) ||> Map.fold (fun others name (kills,deaths,color) -> others |> HashMap.update name (function Some o -> {o with frags=kills;deaths=deaths;color=color}|None -> {pos=V3d(234234234.0,346346346.0,35757457.0);frags=kills;deaths=deaths;color=color}))
+                (model.otherPlayers, s) ||> Map.fold (fun others name (kills,deaths,color) -> others |> HashMap.update name (function Some o -> {o with frags=kills;deaths=deaths;color=color}|None -> {pos=V3d(234234234.0,346346346.0,35757457.0);fw=V3d.IOO;up=V3d.OIO;ri=V3d.OOI;reloading=false;weapon=WeaponType.LaserGun;frags=kills;deaths=deaths;color=color}))
                 |> HashMap.remove model.playerName
             {model with frags=myKills; deaths=myDeaths; color=myColor; otherPlayers=newOthers}
         | UpdateTime(t, dt) ->
@@ -296,7 +297,17 @@ module Update =
 
 
             env.Emit [UpdateProjectiles dt]
-            client.send (NetworkCommand.UpdatePosition model.camera.camera.Location)
+            client.send (
+                let reolading = model.weapons |> HashMap.tryFind model.activeWeapon |> Option.map Weapon.isReloading |> Option.defaultValue false
+                NetworkCommand.UpdatePosition(
+                    model.camera.camera.Location,
+                    model.camera.camera.Forward,
+                    model.camera.camera.Up,
+                    model.camera.camera.Right,
+                    model.activeWeapon |> WeaponType.pickle,
+                    reolading
+                )
+            )
 
             if model.onFloor then
                 { model with
@@ -411,7 +422,7 @@ module Update =
             let ps = ps |> List.map (fun pi -> {pi with StartTime=model.time})
             {model with projectiles = HashSet.union (HashSet.ofList ps) model.projectiles}
         | SpawnShotTrails trails -> 
-            let nts = HashSet.union (HashSet.ofList (trails |> List.map (fun (line,dur,color) -> {line=line;duration=dur;startTime=model.time;color=color}))) model.shotTrails
+            let nts = HashSet.union (HashSet.ofList (trails |> List.map (fun (line,dur,color) -> {realLine=line;offsetLine=line;duration=dur;startTime=model.time;color=color}))) model.shotTrails
             {model with shotTrails = nts}
         | Shoot -> 
             let weapon = model.weapons.Item model.activeWeapon
@@ -464,11 +475,11 @@ module Update =
                             match floorHits |> HashMap.tryFind i with 
                             | Some floor -> 
                                 match playerHits |> HashMap.tryFind i, targetHits |> HashMap.tryFind i with
-                                | Some hit, _ | None, Some hit -> {n with line=Line3d(n.line.P0, hit)}
-                                | _ -> {n with line=Line3d(n.line.P0, floor)}
+                                | Some hit, _ | None, Some hit -> {n with offsetLine=Line3d(n.offsetLine.P0, hit)}
+                                | _ -> {n with offsetLine=Line3d(n.offsetLine.P0, floor)}
                             | _ -> n
                         ) unclippedTrails 
-                    client.send (NetworkCommand.SpawnShotTrails (newTrails |> List.map (fun info -> info.line, 0.0, info.duration, info.color)))
+                    client.send (NetworkCommand.SpawnShotTrails (newTrails |> List.map (fun info -> info.realLine, 0.0, info.duration, info.color)))
                     newTrails
                 let mutable newHits = 
                     floorHits |> List.choose (fun (i,p) ->
@@ -508,7 +519,7 @@ module Update =
                     |> HashMap.filter (fun _ t -> t.currentHp > 0)
                 let updatedWeapon = {weapon with ammo = weapon.updateAmmo weapon.ammo; lastShotTime = Some model.time }
                 
-                env.Emit [SpawnShotTrails (newTrails |> List.map (fun ti -> ti.line,ti.duration,ti.color)); SpawnProjectiles projectiles]
+                env.Emit [SpawnShotTrails (newTrails |> List.map (fun ti -> ti.offsetLine,ti.duration,ti.color)); SpawnProjectiles projectiles]
                 { model with
                     targets = updatedTargets
                     weapons = model.weapons |> HashMap.add model.activeWeapon updatedWeapon

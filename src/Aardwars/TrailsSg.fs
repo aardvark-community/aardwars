@@ -19,7 +19,7 @@ module Trails =
         
         let verts =
             shotTrails |> ASet.toAVal |> AVal.map (Seq.toArray >> Array.collect (fun ti -> 
-                [|ti.line.P0; ti.line.P1|]
+                [|ti.offsetLine.P0; ti.offsetLine.P1|]
             ))
         
         let colors = 
