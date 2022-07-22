@@ -69,8 +69,52 @@ module Text =
         |> Sg.depthTest' DepthTest.None
         |> Sg.blendMode' BlendMode.Blend
 
-        
+    let killfeed (win : IRenderWindow) (time : aval<float>) (feed : aval<list<float*string>>) =
+        let textProj =
+            win.Sizes |> AVal.map (fun s ->
+                Trafo3d.Scale(float s.Y / float s.X, 1.0, 1.0)
+            )
+                        
+        let font = FontSquirrel.Hack.Regular
 
+        (feed) |> AVal.map (fun lines -> 
+            lines |> List.mapi (fun i (startTime,line) -> 
+                let alpha = time |> AVal.map (fun time -> clamp 0.0 1.0 (1.0-(time-startTime)/3.5))
+                let shape = line |> AVal.constant |> AVal.map (fun t -> font.Layout(C4f(1.0f,1.0f,1.0f,1.0f).ToC4b(), t))
+                let trafo = 
+                    (win.Sizes, shape) ||> AVal.map2 (fun s shape ->
+                   
+                        let scale = 15.0 / float s.Y * 2.0
+                        let bounds = Box2d(shape.bounds.Min * scale, shape.bounds.Max * scale)
+                    
+                        let minX = float s.X / float s.Y // left
+                        let maxX = (float s.X / float s.Y) - bounds.Max.X // right
+                        let rangeX = maxX - minX
+
+                        let minY =  1.0 - bounds.Max.Y // top
+                        let maxY = -1.0 + bounds.Max.Y // bottom
+                        let rangeY = maxY - minY
+                 
+                        let x = maxX
+                        let y = minY - (float killfeedLength) * scale + (float i * scale)
+
+                        Trafo3d.Scale(scale) *
+                        Trafo3d.Translation(x, y, -1.0)
+                    )
+                Sg.shape shape
+                |> Sg.trafo trafo
+                |> Sg.uniform "Alpha" alpha
+            ) |> Sg.ofList
+        )
+        |> Sg.dynamic
+        |> Sg.viewTrafo (AVal.constant Trafo3d.Identity)
+        |> Sg.projTrafo textProj
+        |> Sg.afterEffect [
+            toEffect <| Elm.Shader.sgAlpha
+        ]
+        |> Sg.pass Elm.Passes.pass2
+        |> Sg.depthTest' DepthTest.None
+        |> Sg.blendMode' BlendMode.Blend
 
     let weaponTextSg (win : IRenderWindow) (text : aval<string>) =
     

@@ -148,7 +148,8 @@ type Model =
         maxHp               : float
         hitAnimations       : HashSet<HitAnimation>
         explosionAnimations : HashSet<ExplosionAnimationInfo>
-        triggerHeld : bool
+        triggerHeld         : bool
+        killfeed            : list<float*string>
     }
 
 

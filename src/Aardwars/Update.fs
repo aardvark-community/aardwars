@@ -31,6 +31,7 @@ type Message =
     | HitBy of string * float
     | HitByWithSlap of string * float * V3d
     | UpdateStats of Map<string,(int*int*string)>
+    | KillfeedMessage of string*string*WeaponType
 
 module Update =
     let rand = RandomSystem()
@@ -56,6 +57,8 @@ module Update =
                 env.Emit [UpdateStats s]
             | NetworkMessage.SpawnShotTrails trails -> 
                 env.Emit [SpawnShotTrails (trails |> List.map (fun (l,s,d,c) -> l,d,c))]
+            | NetworkMessage.Died (k,d,w) -> 
+                env.Emit [KillfeedMessage (k,d,WeaponType.unpickle w)]
             | NetworkMessage.SpawnProjectiles projs ->
                 let projs = 
                     projs |> List.map (fun (n,p,v,d,sr,br,sd,bd) -> 
@@ -220,7 +223,7 @@ module Update =
         | UpdateStats s -> 
             let (myKills,myDeaths,myColor) = s |> Map.tryFind model.playerName |> Option.defaultValue (0,0,"yellow")
             let newOthers = 
-                (model.otherPlayers, s) ||> Map.fold (fun others name (kills,deaths,color) -> others |> HashMap.update name (function Some o -> {o with frags=kills;deaths=deaths;color=color}|None -> {pos=V3d.NaN;frags=kills;deaths=deaths;color=color}))
+                (model.otherPlayers, s) ||> Map.fold (fun others name (kills,deaths,color) -> others |> HashMap.update name (function Some o -> {o with frags=kills;deaths=deaths;color=color}|None -> {pos=V3d(234234234.0,346346346.0,35757457.0);frags=kills;deaths=deaths;color=color}))
                 |> HashMap.remove model.playerName
             {model with frags=myKills; deaths=myDeaths; color=myColor; otherPlayers=newOthers}
         | UpdateTime(t, dt) ->
@@ -369,6 +372,7 @@ module Update =
             |MouseButtons.Right -> {model with proj = Frustum.perspective 110.0 0.1 1000.0 (float model.size.X / float model.size.Y) ; isZoomed = false}
             | _ -> model
         | MouseDown button -> 
+            let model =  {model with killfeed=(model.time,"asduofhas")::model.killfeed}
             let nm = 
                 match button with
                 | MouseButtons.Left -> 
@@ -492,3 +496,14 @@ module Update =
                     weapons = model.weapons |> HashMap.add model.activeWeapon updatedWeapon
                     hitAnimations = HashSet.union model.hitAnimations newHits
                 }
+        | KillfeedMessage(k,d,w) -> 
+            let s =
+                match w with 
+                | LaserGun -> "Laser Gun"
+                | Shotgun -> "Shotgun"
+                | RocketLauncher -> "Rocket Launcher"
+                | RainbowGun -> "Rainbow Gun"
+                | Sniper -> "Sniper Rifle"
+            let s = sprintf "%s killed %s with %s" k d s
+            let nkf = (model.time,s)::(model.killfeed |> List.truncate killfeedLength)
+            {model with killfeed=nkf}

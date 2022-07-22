@@ -76,6 +76,7 @@ module Game =
             deaths = 0
             color = "yellow"
             triggerHeld=false
+            killfeed=[0.0,"GERÄTBLAAAAAA"]
         }
 
     let view (client : NetworkClient) (env : Environment<Message>) (model : AdaptiveModel) =
@@ -194,7 +195,7 @@ module Game =
         let trailsSg = Trails.sg model.shotTrails model.time |> Sg.pass Passes.pass1
         let projectileSg = Projectile.scene model.projectiles
         let explosionSg = Projectile.explosionScene model.time model.explosionAnimations
-
+        let killfeedSg = Text.killfeed env.Window model.time model.killfeed
         let targetsSg =
             model.targets 
             |> AMap.toASet 
@@ -227,7 +228,7 @@ module Game =
                 hits
                 projectileSg
                 explosionSg
-                medipackSg
+                killfeedSg
                 Skybox.scene
             ]
             |> Sg.viewTrafo (model.camera.camera |> AVal.map CameraView.viewTrafo)
