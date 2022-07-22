@@ -104,7 +104,7 @@ module Shader =
     [<GLSLIntrinsic("gl_FragDepth")>]
     let depth() : float = onlyInShaderCode "depth"
 
-    let fogColor = C4d.DeepPink.ToV4d()
+    let fogColor = C4d.LightPink.ToV4d()
     let foggy (v : Effects.Vertex) =
         fragment {
             // get world position

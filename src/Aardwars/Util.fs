@@ -12,6 +12,7 @@ open System
 open Screenshot
 open System.IO
 
+    
 module GrabNextFrame =
     open OpenTK.Graphics.OpenGL4
 
@@ -203,8 +204,8 @@ open System.Text.RegularExpressions
 type NetworkCommand =
     | Connect of name : string
     | UpdatePosition of V3d
-    | Hit of playerName : string * damage : float
-    | HitWithSlap of playerName : string * damage : float * slap : V3d
+    | Hit of playerName : string * damage : float * sourceDir : V3d * w : int
+    | HitWithSlap of playerName : string * damage : float * slap : V3d * sourceDir : V3d * w : int
     | Died of killingPlayer : string * diedPlayer : string * w : int
     | Stats
     | SpawnShotTrails of list<Line3d * float * float * C4b>
@@ -219,8 +220,8 @@ type NetworkMessage =
     | Connected of playerName : string
     | Disconnected of playerName : string
     | Died of killingPlayer : string * diedPlayer : string * w : int
-    | Hit of byPlayer : string * damage : float
-    | HitWithSlap of byPlayer : string * damage : float * slap : V3d
+    | Hit of byPlayer : string * damage : float * sourceDir : V3d * w : int
+    | HitWithSlap of byPlayer : string * damage : float * slap : V3d * sourceDir : V3d * w : int
     | SpawnProjectiles of list<string * V3d * V3d * float * float * float * float * float>
     | Explode of owner:string*pos:V3d*sr:float*br:float*sd:float*bd:float
 
@@ -247,10 +248,10 @@ module NetworkMessage =
             sprintf "#disconnected %s" n
         | NetworkMessage.Died(k,d,w) ->
             sprintf "#died %s,%s,%d" k d w
-        | NetworkMessage.Hit(p,d) ->
-            sprintf "#hit %s,%f" p d
-        | NetworkMessage.HitWithSlap(p,d,v) ->
-            sprintf "#hitwithslap %s,%f,%f,%f,%f" p d v.X v.Y v.Z
+        | NetworkMessage.Hit(p,d,sd,w) ->
+            sprintf "#hit %s,%f,%f,%f,%f,%d" p d sd.X sd.Y sd.Z w
+        | NetworkMessage.HitWithSlap(p,d,v,sd,w) ->
+            sprintf "#hitwithslap %s,%f,%f,%f,%f,%f,%f,%f,%d" p d v.X v.Y v.Z sd.X sd.Y sd.Z w
         | NetworkMessage.SpawnProjectiles projs -> 
             sprintf
                 "#spawnprojectiles %s"
@@ -276,9 +277,9 @@ module NetworkMessage =
                 | "died" ->
                     NetworkMessage.Died(data.[0],data.[1],int data.[2]) |> Some
                 | "hit" ->
-                    NetworkMessage.Hit (data.[0], float data.[1]) |> Some
+                    NetworkMessage.Hit (data.[0], float data.[1], V3d(float data.[2], float data.[3], float data.[4]), int data.[5]) |> Some
                 | "hitwithslap" ->
-                    NetworkMessage.HitWithSlap (data.[0], float data.[1], V3d(float data.[2], float data.[3], float data.[4])) |> Some
+                    NetworkMessage.HitWithSlap (data.[0], float data.[1], V3d(float data.[2], float data.[3], float data.[4]), V3d(float data.[5], float data.[6], float data.[7]), int data.[8]) |> Some
                 | "stats" ->
                     let stats = 
                         data |> Array.map (fun s -> 
@@ -334,8 +335,8 @@ module NetworkCommand =
         | NetworkCommand.Stats -> "#stats"
         | NetworkCommand.Died(k,d,w) -> sprintf "#died %s,%s,%d" k d w
         | NetworkCommand.UpdatePosition p -> sprintf "#update %f,%f,%f" p.X p.Y p.Z
-        | NetworkCommand.Hit(p, d) -> sprintf "#hit %s,%f" p d
-        | NetworkCommand.HitWithSlap(p,d,v) -> sprintf "#hit %s,%f,%f,%f,%f" p d v.X v.Y v.Z
+        | NetworkCommand.Hit(p, d, sd, w) -> sprintf "#hit %s,%f,%f,%f,%f,%d" p d sd.X sd.Y sd.Z w
+        | NetworkCommand.HitWithSlap(p,d,v,sd,w) -> sprintf "#hit %s,%f,%f,%f,%f,%f,%f,%f,%d" p d v.X v.Y v.Z sd.X sd.Y sd.Z w
         | NetworkCommand.SpawnShotTrails trails -> 
             sprintf 
                 "#spawntrails %s" 
@@ -362,8 +363,8 @@ module NetworkCommand =
                 | "stats" -> NetworkCommand.Stats |> Some
                 | "died" -> NetworkCommand.Died(data.[0],data.[1],int data.[2]) |> Some
                 | "update" -> NetworkCommand.UpdatePosition(V3d(float data.[0], float data.[1], float data.[2]))|> Some
-                | "hit" -> NetworkCommand.Hit(data.[0], float data.[1]) |> Some
-                | "hitwithslap" -> NetworkCommand.HitWithSlap(data.[0], float data.[1], V3d(float data.[2], float data.[3], float data.[4])) |> Some
+                | "hit" -> NetworkCommand.Hit(data.[0], float data.[1], V3d(float data.[2], float data.[3], float data.[4]), int data.[5]) |> Some
+                | "hitwithslap" -> NetworkCommand.HitWithSlap(data.[0], float data.[1], V3d(float data.[2], float data.[3], float data.[4]), V3d(float data.[5], float data.[6], float data.[7]), int data.[8]) |> Some
                 | "spawntrails" -> 
                     let trails = 
                         data |> Array.map (fun d -> 
@@ -433,8 +434,6 @@ module NetworkGroup =
         let clients = ConcurrentDictionary<string, ClientInfo>()
         let frags = ConcurrentDictionary<string, list<DeathInfo>>()
         
-        //let color = colors.[currentPlayerNumber % colors.Length]
-
         let run =   
             async {
                 do! Async.SwitchToThreadPool()
@@ -519,16 +518,16 @@ module NetworkGroup =
                                                     broadcast (NetworkMessage.Died(cause,died,gun))
                                                 | NetworkCommand.Connect _ ->
                                                     broadcast (NetworkMessage.Connected(clientId))
-                                                | NetworkCommand.Hit(other, dmg) ->
+                                                | NetworkCommand.Hit(other, dmg, sd,w) ->
                                                     match clients.TryGetValue other with
                                                     | (true, o) ->
-                                                        send o.c (NetworkMessage.Hit(clientId, dmg))
+                                                        send o.c (NetworkMessage.Hit(clientId, dmg, sd,w))
                                                     | _ ->
                                                         ()
-                                                | NetworkCommand.HitWithSlap(other, dmg, vel) ->
+                                                | NetworkCommand.HitWithSlap(other, dmg, vel, sd,w) ->
                                                     match clients.TryGetValue other with
                                                     | (true, o) ->
-                                                        send o.c (NetworkMessage.HitWithSlap(clientId, dmg, vel))
+                                                        send o.c (NetworkMessage.HitWithSlap(clientId, dmg, vel, sd,w))
                                                     | _ ->
                                                         ()
                                                 | NetworkCommand.Stats ->

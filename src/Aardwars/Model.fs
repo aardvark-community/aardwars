@@ -118,6 +118,12 @@ type ExplosionAnimationInfo =
         SmallColor : C4b
         BigColor : C4b
     }
+type GotHitIndicatorInstance =
+    {
+        HitPosition : V3d
+        StartTime : float
+        damage : float
+    }
 
 [<ModelType>]
 type Model =
@@ -151,6 +157,7 @@ type Model =
         triggerHeld         : bool
         killfeed            : list<float*string>
         tabDown             : bool
+        gotHitIndicatorInstances : HashSet<GotHitIndicatorInstance>
     }
 
 

@@ -13,6 +13,12 @@ open System.Text
 open System.Text.RegularExpressions
 
 
+[<AutoOpen>]
+module PlayerConstant =
+    let playerBounds = Box3d(V3d(-0.3, -0.3, -1.7), V3d(0.3, 0.3, 0.0))
+    let killfeedLength = 6
+    let hitMarkerDuration = 1.0
+    
 module EmbeddedResource =
 
     let get (path : string) =

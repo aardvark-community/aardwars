@@ -80,10 +80,6 @@ type OtherPlayerInfo =
         frags : int
         deaths : int
     }
-[<AutoOpen>]
-module PlayerConstant =
-    let playerBounds = Box3d(V3d(-0.3, -0.3, -1.7), V3d(0.3, 0.3, 0.0))
-    let killfeedLength = 6
     
 type ProjectileCreationInfo =
     {

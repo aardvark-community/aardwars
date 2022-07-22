@@ -83,6 +83,7 @@ module Game =
             triggerHeld=false
             killfeed=[]
             tabDown=false
+            gotHitIndicatorInstances=HashSet.empty
         }
         
     let playerModels = 
@@ -218,10 +219,13 @@ module Game =
 
             [ velocitySg; statsSg; scoreboardSg] |> Sg.ofList
                 
+        let fw = model.camera.camera |> AVal.map (fun cv -> cv.Forward)
+        let loc = model.camera.camera |> AVal.map (fun cv -> cv.Location)
         let trailsSg = Trails.sg model.shotTrails model.time |> Sg.pass Passes.pass1
         let projectileSg = Projectile.scene model.projectiles
         let explosionSg = Projectile.explosionScene model.time model.explosionAnimations
         let killfeedSg = Text.killfeed env.Window model.time model.killfeed
+        let gotHitIndicatorsSg = GotHitIndicatorInstance.scene model.time fw loc model.gotHitIndicatorInstances
         let targetsSg =
             model.targets 
             |> AMap.toASet 
@@ -233,8 +237,9 @@ module Game =
             let trafos = 
                 model.otherPlayers 
                 |> AMap.map (fun name info -> 
-                    Trafo3d.Scale(1.0/5.0) *
+                    Trafo3d.Scale(1.0/10.0) *
                     Trafo3d.FromBasis(V3d.IOO,V3d.OOI,V3d.OIO,V3d.OOO) *
+                    Trafo3d.RotationZ Constant.Pi *
                     Trafo3d.Translation(0.0,0.0,-1.7) *
                     Trafo3d.Translation(info.pos)
                 )
@@ -278,6 +283,7 @@ module Game =
                 projectileSg
                 explosionSg
                 killfeedSg
+                gotHitIndicatorsSg
                 Skybox.scene
             ]
             |> Sg.viewTrafo (model.camera.camera |> AVal.map CameraView.viewTrafo)

@@ -89,37 +89,6 @@ module World =
             Bounds = Box3d.FromCenterAndSize(V3d.Zero, V3d(200.0, 200.0, 1.0))
         }
 
-    let randomGenerated blockCount gridSize (playerHeight : float) =
-        let worldBoxes, render = Scene.createTestScene blockCount gridSize
-        let sg = Scene.boxSg render
-        let hit (p0 : V3d) (p1 : V3d) =
-            let p0 = p0 - (V3d.OOI * playerHeight)
-            let mutable p1 = p1 - (V3d.OOI * playerHeight)
-
-            let mutable zUp = false
-            let tryRepair p1 =
-                worldBoxes 
-                |> Array.fold (fun p1 b ->
-                    let pos = Motion.repairMotion p0 p1 b 0.2
-                    match pos with
-                    | Some (z, p) -> 
-                        if z then zUp <- true
-                        p
-                    | None -> p1
-                ) p1
-            let p1 = tryRepair p1
-            let newP1 = p1 + (V3d.OOI * playerHeight)
-            let onFloor =                        
-                if zUp then true
-                else newP1.Z <= playerHeight
-            newP1,onFloor
-        {
-            Hit = hit
-            Intersections = fun _ _ _ -> Seq.empty
-            Scene = fun _ -> sg
-            Bounds = Box3d worldBoxes
-        }
-
     let minecraft (win : IRenderWindow) (tex : ITexture) (tree : Octree<BoxInfo>) (playerHeight : float) =
         let eps = 1E-3
         let onFloor(p : V3d) =

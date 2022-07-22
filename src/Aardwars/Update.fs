@@ -28,10 +28,11 @@ type Message =
     | Explode of ExplosionInfo
     | Shoot
     | UpdatePlayerPos of string * V3d
-    | HitBy of string * float
-    | HitByWithSlap of string * float * V3d
+    | HitBy of string * float * V3d * WeaponType
+    | HitByWithSlap of string * float * V3d * V3d * WeaponType
     | UpdateStats of Map<string,(int*int*string)>
     | KillfeedMessage of string*string*WeaponType
+    | CreateGotHitIndicatorInstance of sourcePos:V3d*dmg:float
 
 module Update =
     let rand = RandomSystem()
@@ -49,10 +50,10 @@ module Update =
             match msg with
             | NetworkMessage.UpdatePosition(player, pos) ->
                 env.Emit [UpdatePlayerPos(player, pos)]
-            | NetworkMessage.Hit(player, dmg) ->
-                env.Emit [HitBy(player, dmg)]
-            | NetworkMessage.HitWithSlap(player, dmg, vel) ->
-                env.Emit [HitByWithSlap(player, dmg, vel)]
+            | NetworkMessage.Hit(player, dmg, sd,w) ->
+                env.Emit [HitBy(player, dmg, sd, WeaponType.unpickle w)]
+            | NetworkMessage.HitWithSlap(player, dmg, vel, sd,w) ->
+                env.Emit [HitByWithSlap(player, dmg, vel, sd, WeaponType.unpickle w)]
             | NetworkMessage.Stats s ->
                 env.Emit [UpdateStats s]
             | NetworkMessage.SpawnShotTrails trails -> 
@@ -160,11 +161,12 @@ module Update =
                 }
 
         match message with
-        | HitBy(player, dmg) ->
+        | HitBy(player, dmg, sd, w) ->
             let hp = model.currentHp - dmg
+            env.Emit [CreateGotHitIndicatorInstance(sd,dmg)]
             if hp <= 0.0 then
-                client.send (NetworkCommand.Died(player,model.playerName,model.activeWeapon |> WeaponType.pickle))
-                env.Emit [KillfeedMessage(player,model.playerName,model.activeWeapon)]
+                client.send (NetworkCommand.Died(player,model.playerName,w |> WeaponType.pickle))
+                env.Emit [KillfeedMessage(player,model.playerName,w)]
 
                 let b = model.world.Bounds
                 let respawnLocation = 
@@ -180,8 +182,8 @@ module Update =
                 }
             else
                 { model with currentHp = hp }
-        | HitByWithSlap(player, dmg, vel) ->
-            env.Emit [HitBy(player,dmg)]
+        | HitByWithSlap(player, dmg, vel, sd,w) ->
+            env.Emit [HitBy(player,dmg, sd,w)]
             {model with 
                 camera =
                     {model.camera with blastVelocity = model.camera.blastVelocity + vel}
@@ -198,6 +200,10 @@ module Update =
         | KeyUp Keys.A -> model |> cam (CameraMessage.StopMove (V3d(-model.moveSpeed, 0.0, 0.0)))
         | KeyDown Keys.D -> model |> cam (CameraMessage.StartMove (V3d(model.moveSpeed, 0.0, 0.0)))
         | KeyUp Keys.D -> model |> cam (CameraMessage.StopMove (V3d(model.moveSpeed, 0.0, 0.0)))
+        | KeyUp Keys.P -> 
+            printfn "blub"
+            env.Emit [CreateGotHitIndicatorInstance(model.camera.camera.Location+rand.UniformV3dDirection(),rand.UniformDouble()*100.0)]
+            model
         | KeyDown Keys.Space -> model |> cam (CameraMessage.StartMove (V3d(0.0, 0.0, 10.0)))
         | KeyUp Keys.Space -> model
         | KeyDown Keys.Tab -> {model with tabDown=true}
@@ -264,6 +270,7 @@ module Update =
                             i.StartTime+i.Duration > t
                         )
                 }
+            let model = {model with gotHitIndicatorInstances = model.gotHitIndicatorInstances |> HashSet.filter(fun i -> i.StartTime+PlayerConstant.hitMarkerDuration>model.time)}
             let model = 
                 {model with 
                     gunAnimationState = 
@@ -333,9 +340,9 @@ module Update =
             match myHit with 
             | None -> ()
             | Some (vel,dmg) -> 
-                env.Emit [HitByWithSlap(e.Owner, dmg, vel)]
+                env.Emit [HitByWithSlap(e.Owner, dmg, vel, e.Position, WeaponType.RocketLauncher)]
             otherHits |> HashMap.iter (fun name (vel,dmg) -> 
-                client.send (NetworkCommand.HitWithSlap(name,dmg,vel))
+                client.send (NetworkCommand.HitWithSlap(name,dmg,vel,e.Position, WeaponType.pickle WeaponType.RocketLauncher))
             )
             let anim =
                 {
@@ -481,7 +488,7 @@ module Update =
                                 duration = 1.0
                             }
                         newHits <- HashSet.add newHit newHits
-                        client.send (NetworkCommand.Hit(otherPlayerName, dmg))
+                        client.send (NetworkCommand.Hit(otherPlayerName, dmg, model.camera.camera.Location, model.activeWeapon |> WeaponType.pickle))
                 )
 
                 let updatedTargets = 
@@ -509,3 +516,11 @@ module Update =
             let s = sprintf "%s killed %s with %s" k d s
             let nkf = (model.time,s)::(model.killfeed |> List.truncate killfeedLength)
             {model with killfeed=nkf}
+        | CreateGotHitIndicatorInstance(sd,dmg) -> 
+            let newInst =
+                {
+                    HitPosition = sd
+                    StartTime = model.time
+                    damage = dmg
+                }
+            {model with gotHitIndicatorInstances = model.gotHitIndicatorInstances |> HashSet.add newInst}

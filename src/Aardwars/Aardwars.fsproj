@@ -110,7 +110,6 @@
     <Compile Include="CollisionDetection.fs" />
     <Compile Include="LodRenderer.fs" />
     <Compile Include="Shaders.fs" />
-    <Compile Include="RandomBoxWorld.fs" />
     <Compile Include="MinecraftWorld.fs" />
     <Compile Include="World.fs" />
     <Compile Include="Gun.fs" />
