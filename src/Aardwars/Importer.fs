@@ -58,14 +58,14 @@ module Import =
             let map = Map.ofList repl
             x.SubstituteMaterial (fun m -> Some { m with textures = Map.union  m.textures map })
 
-    let importObj (name : string) =
+    let importObj (name : string) (texture : string) =
         let flags = 
             Assimp.PostProcessSteps.Triangulate |||
             Assimp.PostProcessSteps.FindInvalidData
 
         let loaded = Loader.Assimp.Load((sprintf @"assets\%s.obj" name), flags)
 
-        let tex = { Loader.coordIndex = 0; Loader.texture = FileTexture((sprintf @"assets\%s.png" name), TextureParams.mipmapped) :> ITexture }
+        let tex = { Loader.coordIndex = 0; Loader.texture = FileTexture((sprintf @"assets\%s.png" texture), TextureParams.mipmapped) :> ITexture }
         let loaded = 
             loaded.AddTextures [
                 DefaultSemantic.DiffuseColorTexture, tex
@@ -75,4 +75,5 @@ module Import =
             Sg.adapter loaded
         ]
         
-    let importGun (name: string) =  importObj name
+    let importGun (name : string) = importObj name name
+    let importPlayer (name : string) (color : string) = importObj name (name + "_" + color)

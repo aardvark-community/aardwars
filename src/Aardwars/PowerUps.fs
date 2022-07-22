@@ -55,21 +55,21 @@ module PowerUps =
 
         let rotationTrafo = Trafo3d.RotationYInDegrees(-60.0) * Trafo3d.RotationXInDegrees(60.0)
 
-        let sg world=  
-            Import.importObj("MediPack")
-            |> Sg.scale 0.4
-            |> Sg.transform rotationTrafo
-            |> Sg.translation' (position world)
-            |> Sg.shader {
-                do! DefaultSurfaces.trafo
-                do! DefaultSurfaces.diffuseTexture
-                do! DefaultSurfaces.simpleLighting
-            }
-            |> Sg.cullMode' CullMode.None
-            |> Sg.fillMode' FillMode.Fill
+        //let sg world = 
+            //Import.importObj("MediPack")
+            //|> Sg.scale 0.4
+            //|> Sg.transform rotationTrafo
+            //|> Sg.translation' (position world)
+            //|> Sg.shader {
+            //    do! DefaultSurfaces.trafo
+            //    do! DefaultSurfaces.diffuseTexture
+            //    do! DefaultSurfaces.simpleLighting
+            //}
+            //|> Sg.cullMode' CullMode.None
+            //|> Sg.fillMode' FillMode.Fill
             //|> Sg.compile win.Runtime sigg
 
-        sg
+        Sg.empty
         
 
 

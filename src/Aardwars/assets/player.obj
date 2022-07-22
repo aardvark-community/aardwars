@@ -1,6 +1,5 @@
 # Blender v3.2.1 OBJ File: 'player.blend'
 # www.blender.org
-mtllib player.mtl
 o Sphere_Sphere.002
 v 0.000000 0.954116 -0.309017
 v 1.622311 19.089909 0.193776
@@ -5427,7 +5426,7 @@ vn 0.4054 0.0083 -0.9141
 vn -0.9330 0.2445 -0.2639
 vn 0.0000 -0.9952 0.0981
 vn 0.0000 -0.9570 0.2903
-usemtl Material.001
+usemtl Material.002
 s off
 f 37/1/1 28/2/1 84/3/1 85/4/1
 f 13/5/2 5/6/2 58/7/2 67/8/2
