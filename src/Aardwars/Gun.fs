@@ -25,6 +25,15 @@ type AmmoInfo =
 type AmmunitionType = 
     | Endless
     | Limited of AmmoInfo
+module AmmunitionType =
+    let isReloading (a : AmmunitionType) =
+        match a with
+        | Limited ammo -> ammo.startReloadTime |> Option.isSome
+        | _ -> false
+    let isEmpty (a : AmmunitionType) =
+        match a with
+        | Limited ammo -> ammo.availableShots <= 0
+        | _ -> false
 
 type WeaponType =
     | LaserGun
@@ -112,6 +121,7 @@ type Weapon =
     }
 
 module Weapon =
+    let isReloading (w : Weapon) = w.ammo |> AmmunitionType.isReloading
     let rand = RandomSystem()
     let random = System.Random ()
     let canShoot (t : AmmunitionType) (lastShotTime : Option<float>) (waitTimeBetweenShots : float) (currentTime : float) : bool = 
@@ -208,11 +218,16 @@ module Weapon =
         hitTargets,hitPlayers,floorHits
 
     let laserGun =
-        let damage = Range1d(10,15)
+        let damage = Range1d(10,20)
+        let spread = 0.0125
         let createHitrays (cv : CameraView) : list<Ray3d> = 
+            let u = (rand.UniformDouble() * 2.0 - 1.0) * spread
+            let v = (rand.UniformDouble() * 2.0 - 1.0) * spread
             let p = cv.Location
-            let d = cv.Forward
-            [Ray3d(p, d)]
+            let p0 = cv.Location + cv.Forward
+            let p' = p0 + u * cv.Right + v * cv.Up
+            let d' = p' - p
+            [Ray3d(p, d'.Normalized)]
         let createShottrails (range : float) (rays : list<Ray3d>) (cv : CameraView) time =
             rays |> List.map(fun shotRay ->
                 let p0 = shotRay.Origin + cv.Right * 0.7 + cv.Down * 0.3 + cv.Forward * 1.0
@@ -253,7 +268,7 @@ module Weapon =
         {
             damage              = damage
             name                = "Lasergun"
-            cooldown            = 0.5
+            cooldown            = 0.25
             ammo                = AmmunitionType.Endless
             range               = 1000.0
             canShoot            = canShoot
@@ -270,11 +285,12 @@ module Weapon =
         }
 
     let shotGun : Weapon =
-        let damage = Range1d(10, 15)
+        let damage = Range1d(8.75, 8.75)
+        let spread = 0.145
         let createHitrays (cv : CameraView) : list<Ray3d> = 
-            List.init 10 (fun _ ->
-                let u = (rand.UniformDouble() * 2.0 - 1.0) * 0.1
-                let v = (rand.UniformDouble() * 2.0 - 1.0) * 0.1
+            List.init 16 (fun _ ->
+                let u = (rand.UniformDouble() * 2.0 - 1.0) * spread
+                let v = (rand.UniformDouble() * 2.0 - 1.0) * spread
                 let p = cv.Location
                 let p0 = cv.Location + cv.Forward
                 let p' = p0 + u * cv.Right + v * cv.Up
@@ -339,87 +355,90 @@ module Weapon =
         }
 
     let sniper : Weapon =
-            let damage = Range1d(100, 100)
-            let createHitrays (cv : CameraView) : list<Ray3d> = 
-                let p = cv.Location
-                let d = cv.Forward
-                [Ray3d(p, d)]
-            let createShottrails (range : float) (rays : list<Ray3d>) (cv : CameraView) time =
-                rays |> List.map(fun shotRay ->
-                    let p0 = shotRay.Origin + cv.Right * 0.7 + cv.Down * 0.4 + cv.Forward * 1.0
+        let damage = Range1d(90, 90)
+        let createHitrays (cv : CameraView) : list<Ray3d> = 
+            let p = cv.Location
+            let d = cv.Forward
+            [Ray3d(p, d)]
+        let createShottrails (range : float) (rays : list<Ray3d>) (cv : CameraView) time =
+            rays |> List.map(fun shotRay ->
+                let p0 = shotRay.Origin + cv.Right * 0.7 + cv.Down * 0.4 + cv.Forward * 1.0
                 
-                    let p1 = shotRay.Origin + range * shotRay.Direction
-                    let line = Line3d(p0, p1)
-                    {
-                        color = C4b.Beige
-                        line = line
-                        startTime = time
-                        duration = 1.0
-                    }
-                )
-            let calculateDamage (hitCount : int) : int =                        
-                List.init hitCount (fun _ -> 
-                    let t = rand.UniformDouble()
-                    damage.Lerp t
-                )
-                |> List.sum
-                |> int
+                let p1 = shotRay.Origin + range * shotRay.Direction
+                let line = Line3d(p0, p1)
+                {
+                    color = C4b.Beige
+                    line = line
+                    startTime = time
+                    duration = 1.0
+                }
+            )
+        let calculateDamage (hitCount : int) : int =                        
+            List.init hitCount (fun _ -> 
+                let t = rand.UniformDouble()
+                damage.Lerp t
+            )
+            |> List.sum
+            |> int
 
-            let processHits (names : list<string>) (targets : HashMap<string, Target>) : HashMap<string, Target> =
-                let processed = 
-                    names 
-                    |> List.groupBy id
-                    |> List.map (fun (s,ss) -> 
-                        let hitCount = ss |> List.length
-                        targets
-                        |> HashMap.alter s (fun altV -> 
-                            match altV with
-                            | None -> None
-                            | Some target -> 
-                                let newHp =  target.currentHp - (calculateDamage hitCount)
-                                Some {target with currentHp = int newHp}
-                        )
+        let processHits (names : list<string>) (targets : HashMap<string, Target>) : HashMap<string, Target> =
+            let processed = 
+                names 
+                |> List.groupBy id
+                |> List.map (fun (s,ss) -> 
+                    let hitCount = ss |> List.length
+                    targets
+                    |> HashMap.alter s (fun altV -> 
+                        match altV with
+                        | None -> None
+                        | Some target -> 
+                            let newHp =  target.currentHp - (calculateDamage hitCount)
+                            Some {target with currentHp = int newHp}
                     )
-                (processed |> HashMap.unionMany)
+                )
+            (processed |> HashMap.unionMany)
 
-            {
-                damage               = damage
-                name                 = "Sniper"
-                cooldown             = 0.0
-                ammo                 = Limited {
-                                                 reloadTime      = 1.25
-                                                 maxShots        = 3
-                                                 availableShots  = 3
-                                                 startReloadTime = None
-                                               }
-                range               = 500.0
-                canShoot            = canShoot
-                createHitrays       = createHitrays
-                createShottrails    = createShottrails
-                //findHitTargets      = findHitTargets
-                processHits         = processHits
-                createProjectiles = fun _ -> []
-                updateAmmo          = updateAmmo
-                calculateDamage     = calculateDamage
-                reload              = reload
-                startReload         = startReload
-                lastShotTime        = None
-                waitTimeBetweenShots = 1.25
-            }
+        {
+            damage               = damage
+            name                 = "Sniper"
+            cooldown             = 0.0
+            ammo                 = Limited {
+                                                reloadTime      = 2.0
+                                                maxShots        = 3
+                                                availableShots  = 3
+                                                startReloadTime = None
+                                            }
+            range               = 1000.0
+            canShoot            = canShoot
+            createHitrays       = createHitrays
+            createShottrails    = createShottrails
+            processHits         = processHits
+            createProjectiles = fun _ -> []
+            updateAmmo          = updateAmmo
+            calculateDamage     = calculateDamage
+            reload              = reload
+            startReload         = startReload
+            lastShotTime        = None
+            waitTimeBetweenShots = 1.0
+        }
 
     let rainbowgun : Weapon =
-            let damage = Range1d(8, 13)
+            let damage = Range1d(12, 15)
+            let spread = 0.0325
             let createHitrays (cv : CameraView) : list<Ray3d> = 
+                let u = (rand.UniformDouble() * 2.0 - 1.0) * spread
+                let v = (rand.UniformDouble() * 2.0 - 1.0) * spread
                 let p = cv.Location
-                let d = cv.Forward
-                [Ray3d(p, d)]
+                let p0 = cv.Location + cv.Forward
+                let p' = p0 + u * cv.Right + v * cv.Up
+                let d' = p' - p
+                [Ray3d(p, d'.Normalized)]
             let createShottrails (range : float) (rays : list<Ray3d>) (cv : CameraView) time =
                 rays |> List.map(fun shotRay ->
                     let p0 = shotRay.Origin + cv.Right * 0.7 + cv.Down * 0.4 + cv.Forward * 1.0
                     let p1 = shotRay.Origin + range * shotRay.Direction
                     let line = Line3d(p0, p1)
-                    let colorArray = [|C4b.Red; C4b.Orange; C4b.Yellow; C4b.Green; C4b.LightBlue; C4b.DarkBlue; C4b.Purple|]
-                    let color = colorArray.[random.Next(0,6)]
+                    let color = (Elm.Shader.hsv2rgb (rand.UniformDouble()) 1.0 1.0).ToC4f().ToC4b()
                     {
                         color = color
                         line = line
@@ -467,7 +486,6 @@ module Weapon =
                 createHitrays       = createHitrays
                 createProjectiles   = fun _ -> List.empty
                 createShottrails    = createShottrails
-                //findHitTargets      = findHitTargets
                 processHits         = processHits
                 updateAmmo          = updateAmmo
                 calculateDamage     = calculateDamage
@@ -482,10 +500,10 @@ module Weapon =
     let rocketLauncher =
         let createProjectiles (cv : CameraView) =
             let pos = cv.Location + 0.5 * cv.Forward
-            let vel = cv.Forward * 17.5
-            let smallRadius = 1.0
-            let smallDmg = 25.0
-            let bigRadius = 2.0
+            let vel = cv.Forward * 30.5
+            let smallRadius = 0.95
+            let smallDmg = 19.5
+            let bigRadius = 2.5
             let bigDmg = 35.0
             [
                 {
@@ -531,7 +549,8 @@ module Weapon =
         (dt : aval<float>)
         (gunT : aval<V3d>)
         (gunA : aval<V3d>)
-        (gunLastFw : aval<V3d>) =
+        (gunLastFw : aval<V3d>)
+        (isReloading : aval<bool>) =
         
         let sigg =   
             win.Runtime.CreateFramebufferSignature([
@@ -615,11 +634,14 @@ module Weapon =
                 do! 
                     (fun (v : Effects.Vertex) -> 
                         fragment {
-                            return V4d(v.c.X ** 0.5, v.c.Y ** 0.5, v.c.Z ** 0.5, 1.0)
+                            let d : float32 = uniform?Dark
+                            if d > 0.5f then return V4d(v.c.X ** 2.0, v.c.Y ** 2.0, v.c.Z ** 2.0, 1.0)
+                            else return V4d(v.c.X ** 0.5, v.c.Y ** 0.5, v.c.Z ** 0.5, 1.0)
                         }
                     )
                 do! DefaultSurfaces.simpleLighting
             }
+            >> Sg.uniform "Dark" (isReloading |> AVal.map (fun r -> if r then 1.0f else 0.0f))
                 
         let lg =
             Import.importGun("gun") 
@@ -675,7 +697,7 @@ module Weapon =
                 let t2 = 4.0
                 let color = C4b.LightSeaGreen
                 ShapeList.ofListWithRenderStyle RenderStyle.NoBoundary [
-                    ConcreteShape.circle color t (Circle2d(V2d.Zero, r))
+                    //ConcreteShape.circle color t (Circle2d(V2d.Zero, r))
                     ConcreteShape.fillRectangle color (Box2d(r, -t/2.0, r + w, t/2.0))
                     ConcreteShape.fillRectangle color (Box2d(-r-w, -t/2.0, -r, t/2.0))
                     ConcreteShape.fillRectangle color (Box2d(-t/2.0, r, t/2.0, r + w))

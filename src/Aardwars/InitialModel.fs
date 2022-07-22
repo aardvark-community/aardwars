@@ -64,13 +64,6 @@ module Game =
             shotTrails = HashSet.empty
             gunAnimationState = AnimationState.initial
             otherPlayers = HashMap.empty
-                //["sadasd",
-                //                                {
-                //                                    color = "blue"
-                //                                    pos = center
-                //                                    frags = 0
-                //                                    deaths = 0
-                //                                }]
             currentHp = 100
             maxHp = 100
             hitAnimations = HashSet.empty
@@ -84,6 +77,7 @@ module Game =
             killfeed=[]
             tabDown=false
             gotHitIndicatorInstances=HashSet.empty
+            hitEnemyIndicatorInstances=HashMap.empty
         }
         
     let playerModels = 
@@ -164,6 +158,8 @@ module Game =
             }
 
         let gunSg = 
+            let isReloading = 
+                model.activeWeapon |> AVal.bind (fun a -> model.weapons |> AMap.tryFind a |> AVal.map (fun w -> w |> Option.map (fun (w:Weapon) -> Weapon.isReloading w || AmmunitionType.isEmpty w.ammo) |> Option.defaultValue false))
             Weapon.scene 
                 (fun t a -> env.Emit [UpdateAnimationState {model.gunAnimationState.GetValue() with t = t; a = a}]) 
                 env.Window 
@@ -174,6 +170,7 @@ module Game =
                 (model.gunAnimationState |> AVal.map (fun s -> s.t))
                 (model.gunAnimationState |> AVal.map (fun s -> s.a))
                 (model.gunAnimationState |> AVal.map (fun s -> s.lastFw))
+                isReloading
         
 
         //let medipackSg =
@@ -205,14 +202,18 @@ module Game =
 
                 let text = 
                     (weapon, model.currentHp) 
-                    ||> AVal.map2 (fun w hp -> 
+                    ||> AVal.bind2 (fun w hp -> 
                         match w.ammo with
-                        | Endless -> sprintf "HP:%.0f\tAmmo: Inf" hp
+                        | Endless -> AVal.constant (sprintf "HP: %.0f\nAmmo: Inf" hp)
                         | Limited ammoInfo -> 
-                            let rld = 
-                                if ammoInfo.startReloadTime |> Option.isSome then " (reloading ...)"
-                                else ""
-                            sprintf "HP:%.0f\tAmmo: %i/%i%s" hp ammoInfo.availableShots ammoInfo.maxShots rld 
+                            match ammoInfo.startReloadTime with 
+                            | Some st -> 
+                                model.time |> AVal.map (fun t -> 
+                                    let left = ammoInfo.reloadTime - (t-st)
+                                    (sprintf "HP:%.0f\nAmmo: %i/%i (reloading %.1f)" hp ammoInfo.availableShots ammoInfo.maxShots left)
+                                )
+                            | None ->  
+                                AVal.constant (sprintf "HP:%.0f\nAmmo: %i/%i" hp ammoInfo.availableShots ammoInfo.maxShots)
                     )
 
                 Text.weaponTextSg env.Window text
@@ -226,6 +227,7 @@ module Game =
         let explosionSg = Projectile.explosionScene model.time model.explosionAnimations
         let killfeedSg = Text.killfeed env.Window model.time model.killfeed
         let gotHitIndicatorsSg = GotHitIndicatorInstance.scene model.time fw loc model.gotHitIndicatorInstances
+        let hitEnemyIndicatorSg = HitEnemyMarkerInstance.scene model.time model.hitEnemyIndicatorInstances
         let targetsSg =
             model.targets 
             |> AMap.toASet 
@@ -237,22 +239,37 @@ module Game =
             let trafos = 
                 model.otherPlayers 
                 |> AMap.map (fun name info -> 
-                    Trafo3d.Scale(1.0/10.0) *
+                    Trafo3d.Scale(1.0/13.25) *
                     Trafo3d.FromBasis(V3d.IOO,V3d.OOI,V3d.OIO,V3d.OOO) *
-                    Trafo3d.RotationZ Constant.Pi *
+                    //Trafo3d.RotationZ Constant.Pi *
                     Trafo3d.Translation(0.0,0.0,-1.7) *
                     Trafo3d.Translation(info.pos)
+                )
+            let whiteness = 
+                model.hitEnemyIndicatorInstances
+                |> AMap.map (fun _ st -> 
+                    model.time |> AVal.map (fun t -> t-st < PlayerConstant.hitEnemyMarkerDuration)
                 )
             let models = 
                 model.otherPlayers
                 |> AMap.map (fun name info -> playerModels.[info.color])
+
             models |> AMap.toASet |> ASet.map (fun (name,model) -> 
-                model |> Sg.trafo (trafos |> AMap.find name)
+                let isWhite = 
+                    (whiteness |> AMap.tryFind name |> AVal.bind (fun o -> o |> Option.defaultValue (AVal.constant false)))
+                    |> AVal.map (fun b -> 
+                        if b then 1.0f else 0.0f
+                    )
+                model 
+                |> Sg.trafo (trafos |> AMap.find name)
+                |> Sg.uniform "VollgasWhite" isWhite
             )
             |> Sg.set
             |> Sg.shader {
                 do! DefaultSurfaces.trafo
                 do! DefaultSurfaces.diffuseTexture
+                do! DefaultSurfaces.simpleLighting
+                do! Shader.vollgasWhite
             }
 
         let hitBoxes =
@@ -266,7 +283,6 @@ module Game =
             |> Sg.fillMode' FillMode.Line            
             |> Sg.shader {
                 do! DefaultSurfaces.trafo
-                do! DefaultSurfaces.simpleLighting
             }
 
 
@@ -278,12 +294,13 @@ module Game =
                 targetsSg
                 trailsSg
                 otherPlayers
-                hitBoxes
+                //hitBoxes
                 hits
                 projectileSg
                 explosionSg
                 killfeedSg
                 gotHitIndicatorsSg
+                hitEnemyIndicatorSg
                 Skybox.scene
             ]
             |> Sg.viewTrafo (model.camera.camera |> AVal.map CameraView.viewTrafo)

@@ -126,3 +126,13 @@ module Shader =
             let f = va //exp (v * 0.0625) |> clamp 0.0 1.0
             return lerp v.c fogColor f
         }
+    type UniformScope with
+        member x.VollgasWhite : float32 = uniform?VollgasWhite
+    let vollgasWhite (v : Effects.Vertex) =
+        fragment {
+            if uniform.VollgasWhite > 0.5f then 
+                return V4d(1.0,1.0,1.0,1.0)
+            else 
+                return v.c
+        }
+        

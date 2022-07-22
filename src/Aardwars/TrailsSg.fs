@@ -60,6 +60,37 @@ module Trails =
         |> Sg.uniform' "LineWidth" (3.0)
         |> Sg.pass Passes.pass1
 
+module HitEnemyMarkerInstance =
+    let scene (t : aval<float>) (insts : amap<string,float>) =
+        let onoff = 
+            let m = insts |> AMap.toASetValues |> ASet.tryMax 
+            m |> AVal.bind (fun m -> 
+                match m with 
+                | None -> AVal.constant false
+                | Some m -> t |> AVal.map (fun t -> t-m < PlayerConstant.hitEnemyMarkerDuration)
+            )
+        let pos = 
+            let v0 = 0.055
+            let v1 = 0.085
+            [|
+                V3d( v0, v0,0.0);V3d( v1, v1,0.0)
+                V3d( v0,-v0,0.0);V3d( v1,-v1,0.0)
+                V3d(-v0,-v0,0.0);V3d(-v1,-v1,0.0)
+                V3d(-v0, v0,0.0);V3d(-v1, v1,0.0)
+            |]
+        Sg.draw IndexedGeometryMode.LineList
+        |> Sg.vertexAttribute' DefaultSemantic.Positions pos
+        |> Sg.shader {
+            do! DefaultSurfaces.constantColor C4f.White
+            do! DefaultSurfaces.thickLine
+        }
+        |> Sg.uniform' "LineWidth" 4.0
+        |> Sg.onOff onoff
+        |> Sg.viewTrafo' Trafo3d.Identity
+        |> Sg.projTrafo' Trafo3d.Identity
+        |> Sg.pass Passes.pass3
+
+
 module GotHitIndicatorInstance =
     let scene (t : aval<float>) (fw : aval<V3d>) (loc : aval<V3d>) (insts : aset<GotHitIndicatorInstance>) =
         let tri = 
@@ -83,7 +114,7 @@ module GotHitIndicatorInstance =
                     )
                 let alpha = 
                     t |> AVal.map (fun t -> 
-                        let ta = 1.0-(clamp 0.0 1.0 (t - inst.StartTime) / PlayerConstant.hitMarkerDuration)
+                        let ta = 1.0-(clamp 0.0 1.0 (t - inst.StartTime) / PlayerConstant.gotHitMarkerDuration)
                         let da = 0.5 + damt * 0.5
                         float32(ta*da)
                     )

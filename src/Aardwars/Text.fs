@@ -145,7 +145,7 @@ module Text =
             let trafo = 
                 (win.Sizes, shape) ||> AVal.map2 (fun s shape ->
                    
-                    let scale = 35.0 / float s.Y * 2.0
+                    let scale = 45.0 / float s.Y * 2.0
                     let bounds = Box2d(shape.bounds.Min * scale, shape.bounds.Max * scale)
                     
                     let minX = -float s.X / float s.Y // left
@@ -156,8 +156,8 @@ module Text =
                     let maxY = -1.0 + bounds.Max.Y // bottom
                     let rangeY = maxY - minY
                  
-                    let x = minX + (0.25 * rangeX) 
-                    let y = maxY 
+                    let x = minX + 0.3
+                    let y = maxY + 0.12
 
                     Trafo3d.Scale(scale) *
                     Trafo3d.Translation(x, y, -1.0)
@@ -188,12 +188,11 @@ module Text =
 
             let trafo = 
                 (win.Sizes, shape) ||> AVal.map2 (fun s shape ->
-                   
-                    let scale = 18.0 / float s.Y * 2.0
+                    let scale = 10.0 / float s.Y * 2.0
                     let bounds = Box2d(shape.bounds.Min * scale, shape.bounds.Max * scale)
                     let minX = -float s.X / float s.Y
-                    let x = minX - bounds.Min.X + 0.02
-                    let y = 1.0 - bounds.Max.Y - 0.02
+                    let x = minX - bounds.Min.X + 0.005
+                    let y = 1.0 - bounds.Max.Y - 0.005
 
                     Trafo3d.Scale(scale) *
                     Trafo3d.Translation(x, y, -1.0)

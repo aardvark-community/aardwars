@@ -26,13 +26,18 @@ type Message =
     | SpawnProjectiles of list<ProjectileInfo>
     | UpdateProjectiles of dt:float
     | Explode of ExplosionInfo
+    | CreateExplosionAnimation of ExplosionAnimationInfo
     | Shoot
     | UpdatePlayerPos of string * V3d
     | HitBy of string * float * V3d * WeaponType
     | HitByWithSlap of string * float * V3d * V3d * WeaponType
     | UpdateStats of Map<string,(int*int*string)>
-    | KillfeedMessage of string*string*WeaponType
+    | EnemyDied of killer:string*died:string*gun:WeaponType
+    | KillfeedMessage of killer:string*died:string*gun:WeaponType
+    | HitEnemy of enemyName:string * damage:float * sourcePos:V3d * w:WeaponType
+    | HitEnemyWithSlap of enemyName:string * damage:float * vel:V3d * sourcePos:V3d * w:WeaponType
     | CreateGotHitIndicatorInstance of sourcePos:V3d*dmg:float
+    | CreateHitEnemyIndicatorInstance of name:string
 
 module Update =
     let rand = RandomSystem()
@@ -59,7 +64,7 @@ module Update =
             | NetworkMessage.SpawnShotTrails trails -> 
                 env.Emit [SpawnShotTrails (trails |> List.map (fun (l,s,d,c) -> l,d,c))]
             | NetworkMessage.Died (k,d,w) -> 
-                env.Emit [KillfeedMessage (k,d,WeaponType.unpickle w)]
+                env.Emit [EnemyDied (k,d,WeaponType.unpickle w)]
             | NetworkMessage.SpawnProjectiles projs ->
                 let projs = 
                     projs |> List.map (fun (n,p,v,d,sr,br,sd,bd) -> 
@@ -270,7 +275,8 @@ module Update =
                             i.StartTime+i.Duration > t
                         )
                 }
-            let model = {model with gotHitIndicatorInstances = model.gotHitIndicatorInstances |> HashSet.filter(fun i -> i.StartTime+PlayerConstant.hitMarkerDuration>model.time)}
+            let model = {model with gotHitIndicatorInstances = model.gotHitIndicatorInstances |> HashSet.filter(fun i -> i.StartTime+PlayerConstant.gotHitMarkerDuration>model.time)}
+            let model = {model with hitEnemyIndicatorInstances = model.hitEnemyIndicatorInstances |> HashMap.filter(fun _ st -> st+PlayerConstant.hitEnemyMarkerDuration>model.time)}
             let model = 
                 {model with 
                     gunAnimationState = 
@@ -342,7 +348,7 @@ module Update =
             | Some (vel,dmg) -> 
                 env.Emit [HitByWithSlap(e.Owner, dmg, vel, e.Position, WeaponType.RocketLauncher)]
             otherHits |> HashMap.iter (fun name (vel,dmg) -> 
-                client.send (NetworkCommand.HitWithSlap(name,dmg,vel,e.Position, WeaponType.pickle WeaponType.RocketLauncher))
+                env.Emit [HitEnemyWithSlap(name,dmg,vel,e.Position, WeaponType.RocketLauncher)]
             )
             let anim =
                 {
@@ -354,6 +360,9 @@ module Update =
                     BigColor = C4b.Gold
                     SmallColor = C4b.LightYellow
                 }
+            env.Emit [CreateExplosionAnimation anim]
+            model
+        | CreateExplosionAnimation anim -> 
             {model with explosionAnimations = model.explosionAnimations |> HashSet.add anim}
         | KeyDown _ -> model
         | KeyUp _ -> model
@@ -428,7 +437,7 @@ module Update =
                                 Position = i.pos
                                 Velocity = i.vel
                                 StartTime = model.time
-                                MaxDuration = 30.0
+                                MaxDuration = 20.0
                                 ExplosionSmallRadius = i.smallRadius
                                 ExplosionBigRadius = i.bigRadius
                                 ExplosionSmallDamage = i.smallDmg
@@ -488,7 +497,7 @@ module Update =
                                 duration = 1.0
                             }
                         newHits <- HashSet.add newHit newHits
-                        client.send (NetworkCommand.Hit(otherPlayerName, dmg, model.camera.camera.Location, model.activeWeapon |> WeaponType.pickle))
+                        env.Emit [HitEnemy(otherPlayerName, dmg, model.camera.camera.Location, model.activeWeapon)]
                 )
 
                 let updatedTargets = 
@@ -516,6 +525,28 @@ module Update =
             let s = sprintf "%s killed %s with %s" k d s
             let nkf = (model.time,s)::(model.killfeed |> List.truncate killfeedLength)
             {model with killfeed=nkf}
+        | EnemyDied (k,d,w) -> 
+            let animMsg = 
+                match model.otherPlayers |> HashMap.tryFind d with 
+                | Some o when d<>model.playerName && k=model.playerName-> 
+                    [
+                        CreateExplosionAnimation {
+                            Center = o.pos - V3d.OOI*0.5
+                            SmallRadius = 0.25
+                            BigRadius = 0.45
+                            StartTime = model.time
+                            Duration = 0.5
+                            BigColor = C4b.MediumVioletRed
+                            SmallColor = C4b.OrangeRed
+                        }
+                    ]
+                | _ -> []
+            env.Emit 
+                [
+                    yield KillfeedMessage(k,d,w)
+                    yield! animMsg
+                ]
+            model
         | CreateGotHitIndicatorInstance(sd,dmg) -> 
             let newInst =
                 {
@@ -524,3 +555,13 @@ module Update =
                     damage = dmg
                 }
             {model with gotHitIndicatorInstances = model.gotHitIndicatorInstances |> HashSet.add newInst}
+        | CreateHitEnemyIndicatorInstance n -> 
+            {model with hitEnemyIndicatorInstances = model.hitEnemyIndicatorInstances |> HashMap.add n model.time}
+        | HitEnemyWithSlap(n,d,v,sp,w) -> 
+            client.send (NetworkCommand.HitWithSlap(n,d,v,sp,WeaponType.pickle w))
+            env.Emit [CreateHitEnemyIndicatorInstance n]
+            model
+        | HitEnemy(n,d,v,w) -> 
+            client.send (NetworkCommand.Hit(n,d,v,WeaponType.pickle w))
+            env.Emit [CreateHitEnemyIndicatorInstance n]
+            model

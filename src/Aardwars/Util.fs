@@ -628,6 +628,21 @@ module MapAssets =
 
 module Shader =
     open FShade
+    [<ReflectedDefinition>]
+    let hsv2rgb (h : float) (s : float) (v : float) =
+        let h = Fun.Frac(h)
+        let chr = v * s
+        let x = chr * (1.0 - Fun.Abs(Fun.Frac(h * 3.0) * 2.0 - 1.0))
+        let m = v - chr
+        let t = (int)(h * 6.0)
+        match t with
+        | 0 -> V3d(chr + m, x + m, m)
+        | 1 -> V3d(x + m, chr + m, m)
+        | 2 -> V3d(m, chr + m, x + m)
+        | 3 -> V3d(m, x + m, chr + m)
+        | 4 -> V3d(x + m, m, chr + m)
+        | 5 -> V3d(chr + m, m, x + m)
+        | _ -> V3d(chr + m, x + m, m)
 
     type TrailVertex = 
         {

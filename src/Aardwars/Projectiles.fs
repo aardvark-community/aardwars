@@ -167,7 +167,7 @@ module Projectile =
                 let inline res (r : float) (c : C4b) (t : float) (rs : float) =
                     let color = c
                     let t = (1.0 - (t - e.StartTime)/e.Duration)
-                    let alpha = t * 0.95
+                    let alpha = t * 0.65
                     let localScale = t * 0.75 + 0.25
                     let trafo = 
                         Trafo3d.RotationZInDegrees(t*2.0*360.0*rs) *

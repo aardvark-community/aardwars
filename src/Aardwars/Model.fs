@@ -158,6 +158,7 @@ type Model =
         killfeed            : list<float*string>
         tabDown             : bool
         gotHitIndicatorInstances : HashSet<GotHitIndicatorInstance>
+        hitEnemyIndicatorInstances : HashMap<string,float>
     }
 
 
