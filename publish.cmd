@@ -1,1 +1,1 @@
-dotnet publish src\Aardwars\Aardwars.fsproj --output C:\minecraft --runtime win-x64 --self-contained
+dotnet publish src\Aardwars\Aardwars.fsproj --output published

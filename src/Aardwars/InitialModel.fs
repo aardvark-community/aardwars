@@ -14,13 +14,11 @@ open Aardvark.Rendering.Text
 
 module Game =
 
-    let intitial (env : Environment<Message>) = 
+    let intitial (texturesPath : string) (mapPath : string) (env : Environment<Message>) = 
         
         //let world = World.randomGenerated 0 (V2i(150,150)) 1.75
         let world = 
-            let textures = @"C:\minecraft\textures"
-            let map = @"C:\minecraft\Jakobs KitPvP"
-            let atlas, tree = MinecraftWorld.load env.Runtime textures map
+            let atlas, tree = MinecraftWorld.load env.Runtime texturesPath mapPath
             World.minecraft env.Window atlas tree 1.75
         let random = System.Random()
 
@@ -76,7 +74,7 @@ module Game =
             deaths = 0
             color = "yellow"
             triggerHeld=false
-            killfeed=[0.0,"GERÄTBLAAAAAA"]
+            killfeed=[]
         }
 
     let view (client : NetworkClient) (env : Environment<Message>) (model : AdaptiveModel) =

@@ -518,7 +518,27 @@ module NetworkGroup =
 
         { receive = received.Values; send = send }
     
-
+    
+type Marker = Marker
+module MapAssets = 
+    open System.IO.Compression
+    open System.IO
+    let ass = typeof<Marker>.Assembly
+    let getFromEmbeddedResources() =
+        let baseDir = Path.combine [Environment.GetFolderPath Environment.SpecialFolder.LocalApplicationData; "Aardwars"]
+        let inline ensure d = if not (Directory.Exists(d)) then Directory.CreateDirectory(d) |> ignore
+        ensure baseDir
+        let extract resourceName folderName =
+            let path = Path.combine [baseDir; folderName]
+            if not (Directory.Exists(path)) then
+                Directory.CreateDirectory(path) |> ignore
+                use s = ass.GetManifestResourceStream resourceName
+                let a = new ZipArchive(s)
+                a.ExtractToDirectory(path)
+            path
+        let mapPath = extract "Aardwars.Jakobs KitPvP.zip" "Jakobs KitPvP"
+        let texPath = extract "Aardwars.textures.zip" "textures"
+        texPath, mapPath
 
 module Shader =
     open FShade
