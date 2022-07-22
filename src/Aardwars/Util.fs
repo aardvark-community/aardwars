@@ -34,6 +34,8 @@ module App =
             view = view
             unpersist = Unpersist.instance
         }
+    let colors = [|"yellow"; "pink"; "red"; "purple";  "orange"; "green"; "blue"; "white"; "black"|]
+
 
 
     let run (window : IRenderWindow) (app : App<'model, 'mmodel, 'message>) =
@@ -114,7 +116,7 @@ type NetworkCommand =
     | UpdatePosition of V3d
     | Hit of playerName : string * damage : float
     | HitWithSlap of playerName : string * damage : float * slap : V3d
-    | Died of byPlayer : string
+    | Died of killingPlayer : string * diedPlayer : string * w : int
     | Stats
     | SpawnShotTrails of list<Line3d * float * float * C4b>
     | SpawnProjectiles of list<string * V3d * V3d * float * float * float * float * float>
@@ -122,12 +124,12 @@ type NetworkCommand =
 
 [<RequireQualifiedAccess>]
 type NetworkMessage =
-    | Stats of Map<string, int>
+    | Stats of Map<string, int*int*string>
     | UpdatePosition of playerName : string * pos : V3d
     | SpawnShotTrails of list<Line3d * float * float * C4b>
     | Connected of playerName : string
     | Disconnected of playerName : string
-    | Died of playerName : string
+    | Died of killingPlayer : string * diedPlayer : string * w : int
     | Hit of byPlayer : string * damage : float
     | HitWithSlap of byPlayer : string * damage : float * slap : V3d
     | SpawnProjectiles of list<string * V3d * V3d * float * float * float * float * float>
@@ -141,7 +143,7 @@ module NetworkMessage =
     let pickle (msg : NetworkMessage) =
         match msg with
         | NetworkMessage.Stats s ->
-            s |> Seq.map (fun (KeyValue(n, cnt)) -> sprintf "%s:%d" n cnt) |> String.concat "," |> sprintf "#stats %s"
+            s |> Seq.map (fun (KeyValue(n, (k,d,c))) -> sprintf "%s:%d:%d:%s" n k d c) |> String.concat "," |> sprintf "#stats %s"
         | NetworkMessage.SpawnShotTrails trails -> 
             sprintf 
                 "#spawntrails %s" 
@@ -154,8 +156,8 @@ module NetworkMessage =
             sprintf "#connected %s" n
         | NetworkMessage.Disconnected(n) ->
             sprintf "#disconnected %s" n
-        | NetworkMessage.Died(n) ->
-            sprintf "#died %s" n
+        | NetworkMessage.Died(k,d,w) ->
+            sprintf "#died %s,%s,%d" k d w
         | NetworkMessage.Hit(p,d) ->
             sprintf "#hit %s,%f" p d
         | NetworkMessage.HitWithSlap(p,d,v) ->
@@ -183,7 +185,7 @@ module NetworkMessage =
                 | "disconnected" ->
                     NetworkMessage.Disconnected data.[0] |> Some
                 | "died" ->
-                    NetworkMessage.Died data.[0] |> Some
+                    NetworkMessage.Died(data.[0],data.[1],int data.[2]) |> Some
                 | "hit" ->
                     NetworkMessage.Hit (data.[0], float data.[1]) |> Some
                 | "hitwithslap" ->
@@ -192,7 +194,7 @@ module NetworkMessage =
                     let stats = 
                         data |> Array.map (fun s -> 
                             let arr = s.Split(':')
-                            (arr.[0], int arr.[1])
+                            (arr.[0], (int arr.[1], int arr.[2], arr.[3]))
                         ) |> Map.ofArray
                     NetworkMessage.Stats stats |> Some
                 | "spawntrails" -> 
@@ -241,7 +243,7 @@ module NetworkCommand =
         match cmd with
         | NetworkCommand.Connect n -> sprintf "#connect %s" n
         | NetworkCommand.Stats -> "#stats"
-        | NetworkCommand.Died cause -> sprintf "#died %s" cause
+        | NetworkCommand.Died(k,d,w) -> sprintf "#died %s,%s,%d" k d w
         | NetworkCommand.UpdatePosition p -> sprintf "#update %f,%f,%f" p.X p.Y p.Z
         | NetworkCommand.Hit(p, d) -> sprintf "#hit %s,%f" p d
         | NetworkCommand.HitWithSlap(p,d,v) -> sprintf "#hit %s,%f,%f,%f,%f" p d v.X v.Y v.Z
@@ -269,7 +271,7 @@ module NetworkCommand =
                 match cmd with
                 | "connect" -> NetworkCommand.Connect data.[0] |> Some
                 | "stats" -> NetworkCommand.Stats |> Some
-                | "died" -> NetworkCommand.Died data.[0] |> Some
+                | "died" -> NetworkCommand.Died(data.[0],data.[1],int data.[2]) |> Some
                 | "update" -> NetworkCommand.UpdatePosition(V3d(float data.[0], float data.[1], float data.[2]))|> Some
                 | "hit" -> NetworkCommand.Hit(data.[0], float data.[1]) |> Some
                 | "hitwithslap" -> NetworkCommand.HitWithSlap(data.[0], float data.[1], V3d(float data.[2], float data.[3], float data.[4])) |> Some
@@ -326,10 +328,23 @@ module NetworkGroup =
     open System.Net.Sockets
     open System.Collections.Concurrent
 
+    type ClientInfo =
+        {
+            c : TextWriter
+            i : int
+        }
+    type DeathInfo =
+        {
+            killingPlayer : string
+            diedPlayer : string
+            gun : int
+        }
     let server (port : int) =
         let listener = new TcpListener(IPAddress.Any, port)
-        let clients = ConcurrentDictionary<string, TextWriter>()
-        let frags = ConcurrentDictionary<string, int>()
+        let clients = ConcurrentDictionary<string, ClientInfo>()
+        let frags = ConcurrentDictionary<string, list<DeathInfo>>()
+        
+        //let color = colors.[currentPlayerNumber % colors.Length]
 
         let run =   
             async {
@@ -338,8 +353,23 @@ module NetworkGroup =
                     async {
                         while true do 
                             do! Async.Sleep 100
-                            for KeyValue(name, c) in clients do
-                                let s = frags |> Seq.map (fun (KeyValue(name, cnt)) -> name,cnt) |> Map.ofSeq
+                            let mycs = (clients |> Seq.map (fun kvp -> kvp.Key,kvp.Value) |> Map.ofSeq)
+                            for KeyValue(name, info) in clients do
+                                let c = info.c
+                                let s = 
+                                    clients.Keys |> Seq.map (fun c -> 
+                                        let kills = frags.GetValueOrDefault(c,[]) |> List.filter (fun i -> i.diedPlayer <> i.killingPlayer) |> List.length
+                                        let deaths = 
+                                            frags |> Seq.sumBy (fun kvp -> 
+                                                kvp.Value |> List.filter (fun i -> i.diedPlayer=c) |> List.length
+                                            )
+                                        let color = 
+                                            match mycs |> Map.tryFind c with 
+                                            | Some i -> i.i
+                                            | None -> 0
+                                        let col = App.colors.[color%App.colors.Length]
+                                        c,(kills,deaths,col)
+                                    ) |> Map.ofSeq
                                 lock c (fun _ -> 
                                     try 
                                         c.WriteLine (NetworkMessage.pickle (NetworkMessage.Stats s))
@@ -364,21 +394,24 @@ module NetworkGroup =
                                         with _ -> ()
                                     )
                                     
-                                    
-
-
                                 w.AutoFlush <- true
                                 let! msg = r.ReadLineAsync() |> Async.AwaitTask
                                 match NetworkCommand.unpickle msg with
                                 | Some (NetworkCommand.Connect clientId) ->
-                                
+                                    
                                     for KeyValue(name, c) in clients do
-                                        send c (NetworkMessage.Connected clientId)
-
-                                    clients.TryAdd(clientId, w) |> ignore
+                                        send c.c (NetworkMessage.Connected clientId)
+                                    
+                                    let i = 
+                                        if clients.Count > 0 then 
+                                            let kvp = clients |> Seq.maxBy(fun kvp -> kvp.Value.i)
+                                            kvp.Value.i+1
+                                        else 0
+                                    clients.TryAdd(clientId, {c=w;i=i}) |> ignore
 
                                     let inline broadcast msg =
-                                        for KeyValue(name, c) in clients do 
+                                        for KeyValue(name, info) in clients do 
+                                            let c = info.c
                                             if name <> clientId then
                                                 send c msg
                                         
@@ -391,25 +424,39 @@ module NetworkGroup =
                                                 match cmd with
                                                 | NetworkCommand.UpdatePosition p ->
                                                     broadcast (NetworkMessage.UpdatePosition(clientId, p))
-                                                | NetworkCommand.Died cause ->
-                                                    frags.AddOrUpdate(cause, (fun _ -> 1), (fun _ o -> o + 1)) |> ignore
-                                                    broadcast (NetworkMessage.Died(clientId))
+                                                | NetworkCommand.Died(cause,died,gun) ->
+                                                    let v = {diedPlayer=died;killingPlayer=cause;gun=gun}
+                                                    frags.AddOrUpdate(cause, (fun _ -> [v]), (fun _ o -> v::o)) |> ignore
+                                                    broadcast (NetworkMessage.Died(cause,died,gun))
                                                 | NetworkCommand.Connect _ ->
                                                     broadcast (NetworkMessage.Connected(clientId))
                                                 | NetworkCommand.Hit(other, dmg) ->
                                                     match clients.TryGetValue other with
                                                     | (true, o) ->
-                                                        send o (NetworkMessage.Hit(clientId, dmg))
+                                                        send o.c (NetworkMessage.Hit(clientId, dmg))
                                                     | _ ->
                                                         ()
                                                 | NetworkCommand.HitWithSlap(other, dmg, vel) ->
                                                     match clients.TryGetValue other with
                                                     | (true, o) ->
-                                                        send o (NetworkMessage.HitWithSlap(clientId, dmg, vel))
+                                                        send o.c (NetworkMessage.HitWithSlap(clientId, dmg, vel))
                                                     | _ ->
                                                         ()
                                                 | NetworkCommand.Stats ->
-                                                    let s = frags |> Seq.map (fun (KeyValue(name, cnt)) -> name,cnt) |> Map.ofSeq
+                                                    let s =
+                                                        clients.Keys |> Seq.map (fun c -> 
+                                                            let kills = frags.GetValueOrDefault(c,[]) |> List.filter (fun i -> i.diedPlayer <> i.killingPlayer) |> List.length
+                                                            let deaths = 
+                                                                frags |> Seq.sumBy (fun kvp -> 
+                                                                    kvp.Value |> List.filter (fun i -> i.diedPlayer=c) |> List.length
+                                                                )
+                                                            let color = 
+                                                                match (clients |> Seq.map (fun kvp -> kvp.Key,kvp.Value) |> Map.ofSeq) |> Map.tryFind c with 
+                                                                | Some i -> i.i
+                                                                | None -> 0
+                                                            let col = App.colors.[color%App.colors.Length]
+                                                            c,(kills,deaths,col)
+                                                        ) |> Map.ofSeq
                                                     send w (NetworkMessage.Stats s)
                                                 | NetworkCommand.SpawnShotTrails trails ->
                                                     broadcast (NetworkMessage.SpawnShotTrails trails)
@@ -425,6 +472,7 @@ module NetworkGroup =
                                     
                                         clients.TryRemove clientId |> ignore
                                         for KeyValue(name, c) in clients do
+                                            let c = c.c
                                             try c.WriteLine(sprintf "%s disconnected" clientId); c.Flush()
                                             with _ -> ()
                                 | _ ->

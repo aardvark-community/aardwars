@@ -134,6 +134,8 @@ type Model =
         isZoomed            : bool
         playerName          : string
         frags               : int
+        deaths              : int
+        color               : string
         moveSpeed           : float
         airAccel            : float
         weapons             : HashMap<WeaponType,Weapon>

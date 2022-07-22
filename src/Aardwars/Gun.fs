@@ -32,6 +32,24 @@ type WeaponType =
     | Sniper
     | RocketLauncher
     | RainbowGun
+    
+module WeaponType =
+    let pickle (t : WeaponType) =
+        match t with
+        | LaserGun        -> 0
+        | Shotgun         -> 1
+        | Sniper          -> 2
+        | RocketLauncher  -> 3
+        | RainbowGun      -> 4
+    let unpickle (t : int) =
+        match t with
+        | 0 -> LaserGun       
+        | 1 -> Shotgun        
+        | 2 -> Sniper         
+        | 3 -> RocketLauncher 
+        | 4 -> RainbowGun   
+        | _ -> failwith "ashudfchza"
+        
 
 type TrailInfo = 
     {
@@ -57,8 +75,10 @@ type LastHitInfo =
     
 type OtherPlayerInfo =
     {
+        color : string
         pos : V3d
         frags : int
+        deaths : int
     }
 [<AutoOpen>]
 module PlayerConstant =
