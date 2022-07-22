@@ -32,6 +32,24 @@ type WeaponType =
     | Sniper
     | RocketLauncher
     | RainbowGun
+    
+module WeaponType =
+    let pickle (t : WeaponType) =
+        match t with
+        | LaserGun        -> 0
+        | Shotgun         -> 1
+        | Sniper          -> 2
+        | RocketLauncher  -> 3
+        | RainbowGun      -> 4
+    let unpickle (t : int) =
+        match t with
+        | 0 -> LaserGun       
+        | 1 -> Shotgun        
+        | 2 -> Sniper         
+        | 3 -> RocketLauncher 
+        | 4 -> RainbowGun   
+        | _ -> failwith "ashudfchza"
+        
 
 type TrailInfo = 
     {
@@ -57,8 +75,10 @@ type LastHitInfo =
     
 type OtherPlayerInfo =
     {
+        color : string
         pos : V3d
         frags : int
+        deaths : int
     }
 [<AutoOpen>]
 module PlayerConstant =
@@ -322,7 +342,7 @@ module Weapon =
         }
 
     let sniper : Weapon =
-            let damage = Range1d(95, 105)
+            let damage = Range1d(100, 100)
             let createHitrays (cv : CameraView) : list<Ray3d> = 
                 let p = cv.Location
                 let d = cv.Forward
@@ -391,7 +411,7 @@ module Weapon =
             }
 
     let rainbowgun : Weapon =
-            let damage = Range1d(27, 32)
+            let damage = Range1d(8, 13)
             let createHitrays (cv : CameraView) : list<Ray3d> = 
                 let p = cv.Location
                 let d = cv.Forward
@@ -460,14 +480,16 @@ module Weapon =
                 waitTimeBetweenShots = 0.1
 
             }
+
+
     let rocketLauncher =
         let createProjectiles (cv : CameraView) =
             let pos = cv.Location + 0.5 * cv.Forward
             let vel = cv.Forward * 17.5
-            let smallRadius = 0.75
-            let smallDmg = 20.0
-            let bigRadius = 1.5
-            let bigDmg = 25.0
+            let smallRadius = 1.0
+            let smallDmg = 25.0
+            let bigRadius = 2.0
+            let bigDmg = 35.0
             [
                 {
                     pos             = pos
@@ -579,9 +601,10 @@ module Weapon =
                     Trafo3d.Scale(0.3) *
                     Trafo3d.Translation(1.5,-1.0,-2.0)
                 | RocketLauncher -> 
+                    //Trafo3d.RotationY(-1.5707963268) *
                     Trafo3d.Scale(1.0,1.0,1.0) *
-                    Trafo3d.Scale(0.2) *
-                    Trafo3d.Translation(1.5,-1.0,-2.0)
+                    Trafo3d.Scale(0.3) *
+                    Trafo3d.Translation(1.5,-1.0,-2.25)  
                 | RainbowGun ->
                     Trafo3d.Scale(1.0,1.0,1.0) *
                     Trafo3d.Scale(0.3) *
@@ -609,17 +632,8 @@ module Weapon =
             Import.importGun("sniper")
         let rg =
             Import.importGun("rainbowgun")
-        let rl =
-            Sg.ofList [
-                Sg.box' C4b.DarkRed (Box3d.FromCenterAndSize(V3d.OOI*0.0,V3d.III*0.75))
-                Sg.box' C4b.DarkRed (Box3d.FromCenterAndSize(V3d.OOI*1.0,V3d.III*0.75))
-                Sg.box' C4b.DarkRed (Box3d.FromCenterAndSize(V3d.OOI*2.0,V3d.III*0.75))
-            ]
-            |> Sg.shader {
-                do! DefaultSurfaces.trafo
-                do! DefaultSurfaces.vertexColor
-                do! DefaultSurfaces.simpleLighting
-            }
+        let rl = 
+            Import.importGun("rocketlauncher")
         let task =  
             activeWeapon
             |> AVal.map (function 
@@ -627,7 +641,7 @@ module Weapon =
                 | Shotgun -> sg |> modelSurface
                 | Sniper -> sn |> modelSurface
                 | RainbowGun -> rg |> modelSurface
-                | RocketLauncher -> rl
+                | RocketLauncher -> rl |> modelSurface
             )
             |> Sg.dynamic
             |> Sg.trafo gunMotionTrafo
@@ -662,7 +676,7 @@ module Weapon =
                 let r = 30.0
                 let w = 10.0
                 let t2 = 4.0
-                let color = C4b.Black
+                let color = C4b.LightSeaGreen
                 ShapeList.ofListWithRenderStyle RenderStyle.NoBoundary [
                     ConcreteShape.circle color t (Circle2d(V2d.Zero, r))
                     ConcreteShape.fillRectangle color (Box2d(r, -t/2.0, r + w, t/2.0))

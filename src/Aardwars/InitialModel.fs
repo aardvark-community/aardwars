@@ -73,6 +73,8 @@ module Game =
             projectiles = HashSet.empty
             playerName = System.Environment.MachineName
             frags = 0
+            deaths = 0
+            color = "yellow"
             triggerHeld=false
         }
 
@@ -187,7 +189,7 @@ module Game =
 
                 Text.weaponTextSg env.Window text
 
-            [ velocitySg; statsSg; Text.scoreboard env.Window model.frags model.playerName model.otherPlayers ] |> Sg.ofList
+            [ velocitySg; statsSg; Text.scoreboard env.Window model.frags model.frags model.color model.playerName model.otherPlayers ] |> Sg.ofList
                 
         let trailsSg = Trails.sg model.shotTrails model.time |> Sg.pass Passes.pass1
         let projectileSg = Projectile.scene model.projectiles

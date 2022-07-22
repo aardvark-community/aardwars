@@ -8,7 +8,7 @@ open Aardvark.Application
 open Aardvark.Rendering.Text
 
 module Text = 
-    let scoreboard (win : IRenderWindow) (myFrags : aval<int>) (myName : aval<string>) (others : amap<string,OtherPlayerInfo>) =
+    let scoreboard (win : IRenderWindow) (myFrags : aval<int>) (myDeaths : aval<int>) (myColor : aval<string>) (myName : aval<string>) (others : amap<string,OtherPlayerInfo>) =
         let textProj =
             win.Sizes |> AVal.map (fun s ->
                 Trafo3d.Scale(float s.Y / float s.X, 1.0, 1.0)
@@ -22,16 +22,18 @@ module Text =
                     let os = others.Content.GetValue(tok)
                     let myfrags = myFrags.GetValue(tok)
                     let myName = myName.GetValue tok
+                    let myDeaths = myDeaths.GetValue tok
+                    let myColor = myColor.GetValue tok
                     let res = 
                         os 
-                        |> HashMap.map (fun n o -> o.frags)
-                        |> HashMap.add myName myfrags
-                        |> Seq.sortByDescending snd
+                        |> HashMap.map (fun n o -> o.frags,o.deaths,o.color)
+                        |> HashMap.add myName (myfrags,myDeaths,myColor)
+                        |> Seq.sortByDescending (fun (_,(f,_,_)) -> f)
                         |> Seq.toArray
                     let longest = res |> Array.map (fst >> String.length) |> Array.max
-                    res |> Array.map (fun (n,f) -> 
+                    res |> Array.map (fun (n,(f,d,c)) -> 
                         let n = n+System.String(' ',longest-n.Length)
-                        sprintf "%s %d" n f
+                        sprintf "%s %d %d %s" n f d c
                     ) |> String.concat "\n"
                 )
             let shape = text |> AVal.map (fun t -> font.Layout(C4b.White, t))

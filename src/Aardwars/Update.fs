@@ -30,7 +30,7 @@ type Message =
     | UpdatePlayerPos of string * V3d
     | HitBy of string * float
     | HitByWithSlap of string * float * V3d
-    | UpdateStats of Map<string,int>
+    | UpdateStats of Map<string,(int*int*string)>
 
 module Update =
     let rand = RandomSystem()
@@ -160,7 +160,7 @@ module Update =
         | HitBy(player, dmg) ->
             let hp = model.currentHp - dmg
             if hp <= 0.0 then
-                client.send (NetworkCommand.Died player)
+                client.send (NetworkCommand.Died(player,model.playerName,model.activeWeapon |> WeaponType.pickle))
 
                 let b = model.world.Bounds
                 let respawnLocation = 
@@ -183,7 +183,7 @@ module Update =
                     {model.camera with blastVelocity = model.camera.blastVelocity + vel}
             }
         | UpdatePlayerPos(player, pos) ->
-            { model with otherPlayers = HashMap.alter player (function Some o -> Some {o with pos=pos} | None -> Some {pos=pos;frags=0}) model.otherPlayers }
+            { model with otherPlayers = HashMap.alter player (function Some o -> Some {o with pos=pos} | None -> Some {pos=pos;frags=0;deaths=0;color="yellow"}) model.otherPlayers }
 
         | MouseMove delta -> model |> cam (CameraMessage.Look (delta,model.isZoomed))
         | KeyDown Keys.W -> model |> cam (CameraMessage.StartMove (V3d(0.0, model.moveSpeed, 0.0)))
@@ -218,11 +218,11 @@ module Update =
                 proj = Frustum.perspective 110.0 0.1 1000.0 (float s.X / float s.Y) 
             }
         | UpdateStats s -> 
-            let myNewFrags = s |> Map.tryFind model.playerName |> Option.defaultValue 0
+            let (myKills,myDeaths,myColor) = s |> Map.tryFind model.playerName |> Option.defaultValue (0,0,"yellow")
             let newOthers = 
-                (model.otherPlayers, s) ||> Map.fold (fun others name f -> others |> HashMap.update name (function Some o -> {o with frags=f}|None -> {pos=V3d.NaN;frags=f}))
+                (model.otherPlayers, s) ||> Map.fold (fun others name (kills,deaths,color) -> others |> HashMap.update name (function Some o -> {o with frags=kills;deaths=deaths;color=color}|None -> {pos=V3d.NaN;frags=kills;deaths=deaths;color=color}))
                 |> HashMap.remove model.playerName
-            {model with frags=myNewFrags; otherPlayers=newOthers}
+            {model with frags=myKills; deaths=myDeaths; color=myColor; otherPlayers=newOthers}
         | UpdateTime(t, dt) ->
             let model = model |> cam (CameraMessage.UpdateTime(t, dt))
             let newTrailSet = 
