@@ -16,11 +16,13 @@ open System.Text.RegularExpressions
 [<AutoOpen>]
 module PlayerConstant =
     let playerBounds = Box3d(V3d(-0.3, -0.3, -1.7), V3d(0.3, 0.3, 0.0))
-    let killfeedLength = 6
+    let killfeedLength = 10
+    let killfeedFadeTime = 16.0
     let gotHitMarkerDuration = 1.0
     let hitEnemyMarkerDuration = 0.125
     let respawnDelay = 3.0
     let roundTime = 390.0
+    let roundRestartDelay = 5.0
     
 module EmbeddedResource =
 

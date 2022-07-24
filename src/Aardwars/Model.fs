@@ -156,14 +156,17 @@ type Model =
         explosionAnimations : HashSet<ExplosionAnimationInfo>
         triggerHeld         : bool
         killfeed            : list<float*string>
-        tabDown             : bool
         gotHitIndicatorInstances : HashSet<GotHitIndicatorInstance>
         hitEnemyIndicatorInstances : HashMap<string,float>
         lastPositionReset : float
         lastGotHit : Option<string * WeaponType>
         deathTime : Option<float>
         gameEndTime : Option<float>
-        timeLeft : float
+        gameStartTime : float
+        
+        tabDown             : bool
+        ctrlDown            : bool
+        shiftDown           : bool
     }
 module Model =
     let amDead (m : Model) =

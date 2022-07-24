@@ -39,9 +39,13 @@ type Message =
     | CreateGotHitIndicatorInstance of sourcePos:V3d*dmg:float
     | CreateHitEnemyIndicatorInstance of name:string
     | TeleportToSpawnLocation
-    | Respawn
+    | RestartGame of force:bool
+    | Respawn of force:bool
     | ResetPlayerState
+    | ResetWorldState
     | Disconnected of string
+    | SyncRestartTime of float
+    
 
 module Update =
     let rand = RandomSystem()
@@ -63,14 +67,18 @@ module Update =
                 env.Emit [HitBy(player, dmg, sd, WeaponType.unpickle w)]
             | NetworkMessage.HitWithSlap(player, dmg, vel, sd,w) ->
                 env.Emit [HitByWithSlap(player, dmg, vel, sd, WeaponType.unpickle w)]
-            | NetworkMessage.Stats s ->
-                env.Emit [UpdateStats s]
+            | NetworkMessage.Stats(s,t) ->
+                env.Emit [UpdateStats s; SyncRestartTime t]
             | NetworkMessage.SpawnShotTrails trails -> 
                 env.Emit [SpawnShotTrails (trails |> List.map (fun (l,s,d,c) -> l,d,c))]
             | NetworkMessage.Died (k,d,w) -> 
                 env.Emit [EnemyDied (k,d,WeaponType.unpickle w)]
             | NetworkMessage.Disconnected n -> 
                 env.Emit [Disconnected n]
+            | NetworkMessage.Restart newTime -> 
+                env.Emit [RestartGame true; SyncRestartTime newTime]
+            | NetworkMessage.SyncRestartTime t -> 
+                env.Emit [SyncRestartTime t]
             | NetworkMessage.SpawnProjectiles projs ->
                 let projs = 
                     projs |> List.map (fun (n,p,v,d,sr,br,sd,bd) -> 
@@ -206,20 +214,29 @@ module Update =
         | KeyUp Keys.D -> model |> cam (CameraMessage.StopMove (V3d(model.moveSpeed, 0.0, 0.0)))
         | KeyDown Keys.Space -> 
             if (Model.amDead model) then 
-                env.Emit [Respawn]
+                env.Emit [Respawn false]
                 model
             else model |> cam (CameraMessage.StartMove (V3d(0.0, 0.0, 10.0)))
         | KeyUp Keys.Space -> model
         | KeyDown Keys.Tab -> {model with tabDown=true}
         | KeyUp Keys.Tab -> {model with tabDown=false}
+        | KeyDown Keys.LeftCtrl | KeyDown Keys.RightCtrl -> {model with ctrlDown=true}
+        | KeyUp Keys.LeftCtrl | KeyUp Keys.RightCtrl -> {model with ctrlDown=false}
+        | KeyDown Keys.LeftShift | KeyDown Keys.RightShift -> {model with shiftDown=true}
+        | KeyUp Keys.LeftShift | KeyUp Keys.RightShift -> {model with shiftDown=false}
         | KeyDown Keys.D1 -> {model with activeWeapon = LaserGun}
         | KeyDown Keys.D2 | KeyDown Keys.F -> {model with activeWeapon = Shotgun}
         | KeyDown Keys.D3 | KeyDown Keys.Q -> {model with activeWeapon = Sniper}
         | KeyDown Keys.D4 | KeyDown Keys.C -> {model with activeWeapon = RainbowGun}
         | KeyDown Keys.D5 | KeyDown Keys.G -> {model with activeWeapon = RocketLauncher}
         | KeyDown Keys.P -> 
-            printfn "position: %A" model.camera.camera.Location
-            model
+            if model.ctrlDown && model.shiftDown then 
+                env.Emit [RestartGame false]
+                client.send (NetworkCommand.Restart)
+                model
+            else
+                printfn "position: %A" model.camera.camera.Location
+                model
         | KeyDown Keys.R ->
             if (Model.controlsDisabled model) then model
             else
@@ -230,7 +247,7 @@ module Update =
                 {model with weapons = updatedWeapons}
         | KeyDown Keys.Back -> 
             if (Model.amDead model) then 
-                env.Emit [Respawn]
+                env.Emit [Respawn false]
                 model
             elif model.lastPositionReset + 5.0 < model.time then 
                 env.Emit [TeleportToSpawnLocation]
@@ -241,6 +258,8 @@ module Update =
                 size = s
                 proj = Frustum.perspective 110.0 0.1 1000.0 (float s.X / float s.Y) 
             }
+        | SyncRestartTime t -> 
+            {model with gameStartTime = t}
         | UpdateStats s -> 
             let (myKills,myDeaths,myColor) = s |> Map.tryFind model.playerName |> Option.defaultValue (0,0,"yellow")
             let newOthers = 
@@ -248,6 +267,7 @@ module Update =
                 |> HashMap.remove model.playerName
             {model with frags=myKills; deaths=myDeaths; color=myColor; otherPlayers=newOthers}
         | UpdateTime(t, dt) ->
+            let model = {model with time = t;lastDt=dt}
             let model = model |> cam (CameraMessage.UpdateTime(t, dt))
             let newTrailSet = 
                 model.shotTrails
@@ -292,6 +312,14 @@ module Update =
             let model = {model with gotHitIndicatorInstances = model.gotHitIndicatorInstances |> HashSet.filter(fun i -> i.StartTime+PlayerConstant.gotHitMarkerDuration>model.time)}
             let model = {model with hitEnemyIndicatorInstances = model.hitEnemyIndicatorInstances |> HashMap.filter(fun _ st -> st+PlayerConstant.hitEnemyMarkerDuration>model.time)}
             let model = 
+                match model.gameEndTime with 
+                | None -> 
+                    let myt = (Elm.App.absTimeNow())
+                    if model.gameStartTime+PlayerConstant.roundTime < myt then 
+                        {model with gameEndTime = Some t}
+                    else model
+                | Some _ -> model
+            let model = 
                 {model with 
                     gunAnimationState = 
                         { model.gunAnimationState with
@@ -317,19 +345,13 @@ module Update =
                     reolading
                 )
             )
-
             if model.onFloor then
-                { model with
-                    time = t
-                    lastDt = dt
-                }
+                model
             else
                 let cam = model.camera
                 { model with
-                    time = t
-                    lastDt = dt
                     camera = 
-                        if (Model.amDead model) then cam
+                        if (Model.controlsDisabled model) then cam
                         else 
                             { cam with 
                                 velocity = cam.velocity - V3d(0.0, 0.0, 20.81) * dt
@@ -345,14 +367,34 @@ module Update =
             {model with
                 weapons = model.weapons |> HashMap.map (fun _ w -> {w with ammo = AmmunitionType.reload w.ammo})
                 camera = {model.camera with velocity=V3d.Zero; blastVelocity=V3d.Zero}
+                frags = 0
+                deaths = 0
             }
-        | Respawn -> 
-            match model.deathTime with 
-            | Some t when t+PlayerConstant.respawnDelay < model.time ->
+        | Respawn force -> 
+            let respawn() = 
                 env.Emit [TeleportToSpawnLocation; ResetPlayerState]
                 {model with currentHp=100; deathTime=None}
-            | _ -> 
-                model
+            if force then respawn()
+            else 
+                match model.deathTime with 
+                | Some t when t+PlayerConstant.respawnDelay < model.time ->
+                    respawn()
+                | _ -> 
+                    model
+        | RestartGame force -> 
+            let restart() =
+                printfn "restarting game"
+                env.Emit [ResetWorldState;Respawn true]
+                {model with gameEndTime=None}
+            if force then restart()
+            else
+                match model.gameEndTime with 
+                | None -> restart()
+                | Some et -> 
+                    if et+PlayerConstant.roundRestartDelay > model.time then model 
+                    else restart()
+        | ResetWorldState -> 
+            {model with projectiles=HashSet.empty; shotTrails=HashSet.empty; explosionAnimations=HashSet.empty; gotHitIndicatorInstances=HashSet.empty; hitEnemyIndicatorInstances=HashMap.empty}
         | UpdateAnimationState s -> {model with gunAnimationState=s}
         | UpdateProjectiles dt -> 
             let newProjs = 
@@ -559,7 +601,7 @@ module Update =
                 }
         | KillfeedMessage(k,d,w) -> 
             let s = WeaponType.toString w
-            let s = sprintf "%s killed %s with %s" k d s
+            let s = sprintf "%s fragged %s with %s" k d s
             let nkf = (model.time,s)::(model.killfeed |> List.truncate killfeedLength)
             {model with killfeed=nkf}
         | EnemyDied (k,d,w) -> 

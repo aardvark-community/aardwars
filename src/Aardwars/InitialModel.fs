@@ -23,7 +23,6 @@ module Game =
         let spawn = world.SpawnLocation() + V3d.OOI*50.0
         let cam = {CameraController.initial with camera = CameraView.lookAt spawn (spawn+V3d.IOO) V3d.OOI}
 
-        
         let model = {
             world = world
             onFloor = false
@@ -58,16 +57,19 @@ module Game =
             color = "yellow"
             triggerHeld=false
             killfeed=[]
-            tabDown=false
             gotHitIndicatorInstances=HashSet.empty
             hitEnemyIndicatorInstances=HashMap.empty
             deathTime=None
             lastPositionReset=0.0
             gameEndTime = None
-            timeLeft=PlayerConstant.roundTime
+            gameStartTime = Elm.App.absTimeNow()
             lastGotHit=None
+
+            tabDown=false
+            ctrlDown = false
+            shiftDown = false
         }
-        Update.update client env model Respawn
+        Update.update client env model (Respawn true)
         
     let playerModels = 
         HashMap.ofList [
@@ -225,6 +227,33 @@ module Game =
                     if rem > 0.0 then Some rem else None
                 ))
             Text.deathScreenSg env.Window (model.deathTime |> AVal.map Option.isSome) (model.lastGotHit |> AVal.map (Option.defaultValue ("",WeaponType.LaserGun))) timeUntil
+        let gameOverScreenSg = 
+            let timeUntil = 
+                (model.time,model.gameEndTime) ||> AVal.map2 (fun t dt -> dt|>Option.bind (fun dt -> 
+                    let rem = dt+PlayerConstant.roundRestartDelay-t
+                    if rem > 0.0 then Some rem else None
+                ))
+            Text.gameOverScreenSg 
+                env.Window 
+                (model.gameEndTime |> AVal.map Option.isSome) 
+                timeUntil 
+                model.frags 
+                model.deaths 
+                model.color 
+                model.playerName 
+                model.otherPlayers
+        let timeleftSg =
+            let text = 
+                (model.time,model.gameStartTime) ||> AVal.map2 (fun _ st -> 
+                    let rem = st+PlayerConstant.roundTime - (Elm.App.absTimeNow())
+                    let min = sprintf "%d" (rem/60.0 |> int)
+                    let sec = 
+                        let v = rem%60.0 |> int
+                        if v < 10 then sprintf "0%d" v else sprintf "%d" v
+                    sprintf "%s:%s" min sec
+                )
+            let onoff = model.gameEndTime |> AVal.map Option.isNone
+            Text.timeleftTextSg env.Window text onoff
         let gotHitIndicatorsSg = GotHitIndicatorInstance.scene model.time fw loc model.gotHitIndicatorInstances
         let hitEnemyIndicatorSg = HitEnemyMarkerInstance.scene model.time model.hitEnemyIndicatorInstances
         let targetsSg =
@@ -323,6 +352,8 @@ module Game =
                 trailsSg
                 otherPlayers
                 deathScreenSg
+                gameOverScreenSg
+                timeleftSg
                 //hitBoxes
                 hits
                 projectileSg

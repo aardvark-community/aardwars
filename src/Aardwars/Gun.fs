@@ -359,7 +359,7 @@ module Weapon =
             name                 = "Shotgun"
             cooldown             = 0.5
             ammo                 = Limited {
-                                             reloadTime      = 1.55
+                                             reloadTime      = 1.45
                                              maxShots        = 2
                                              availableShots  = 2
                                              startReloadTime = Not
@@ -449,8 +449,8 @@ module Weapon =
         }
 
     let rainbowgun : Weapon =
-            let damage = Range1d(12, 15)
-            let spread = 0.0325
+            let damage = Range1d(14, 17)
+            let spread = 0.0335
             let createHitrays (cv : CameraView) : list<Ray3d> = 
                 let u = (rand.UniformDouble() * 2.0 - 1.0) * spread
                 let v = (rand.UniformDouble() * 2.0 - 1.0) * spread
