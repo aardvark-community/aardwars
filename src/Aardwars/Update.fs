@@ -41,6 +41,7 @@ type Message =
     | TeleportToSpawnLocation
     | Respawn
     | ResetPlayerState
+    | Disconnected of string
 
 module Update =
     let rand = RandomSystem()
@@ -68,6 +69,8 @@ module Update =
                 env.Emit [SpawnShotTrails (trails |> List.map (fun (l,s,d,c) -> l,d,c))]
             | NetworkMessage.Died (k,d,w) -> 
                 env.Emit [EnemyDied (k,d,WeaponType.unpickle w)]
+            | NetworkMessage.Disconnected n -> 
+                env.Emit [Disconnected n]
             | NetworkMessage.SpawnProjectiles projs ->
                 let projs = 
                     projs |> List.map (fun (n,p,v,d,sr,br,sd,bd) -> 
@@ -169,6 +172,8 @@ module Update =
                 }
 
         match message with
+        | Disconnected n -> 
+            {model with otherPlayers = model.otherPlayers |> HashMap.remove n}
         | HitBy(player, dmg, sd, w) ->
             if (Model.amDead model) then model 
             else
@@ -332,7 +337,7 @@ module Update =
                             }
                 } 
         | TeleportToSpawnLocation -> 
-            let loc = model.world.RespawnLocation()
+            let loc = model.world.SpawnLocation()
             let newCameraView = model.camera.camera.WithLocation(loc)
             let modelCamera = {model.camera with camera = newCameraView; velocity = V3d.Zero}
             {model with camera = modelCamera}
@@ -590,7 +595,7 @@ module Update =
         | CreateHitEnemyIndicatorInstance n -> 
             {model with hitEnemyIndicatorInstances = model.hitEnemyIndicatorInstances |> HashMap.add n model.time}
         | HitEnemyWithSlap(n,d,v,sp,w) -> 
-            client.send (NetworkCommand.HitWithSlap(n,d,v,sp,WeaponType.pickle w))
+            //client.send (NetworkCommand.HitWithSlap(n,d,v,sp,WeaponType.pickle w))
             env.Emit [CreateHitEnemyIndicatorInstance n]
             model
         | HitEnemy(n,d,v,w) -> 

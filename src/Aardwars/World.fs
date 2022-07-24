@@ -14,7 +14,7 @@ type World =
         Hit : V3d -> V3d -> V3d * bool
         Intersections : Ray3d -> float -> float -> seq<float * BoxInfo>
         Scene : IRenderWindow -> ISg
-        RespawnLocation : unit -> V3d
+        SpawnLocation : unit -> V3d
     }
 
 module World =
@@ -90,7 +90,7 @@ module World =
             Scene = fun _ -> sg
             Intersections = fun _ _ _ -> Seq.empty
             Bounds = Box3d.FromCenterAndSize(V3d.Zero, V3d(200.0, 200.0, 1.0))
-            RespawnLocation = respawn
+            SpawnLocation = respawn
         }
 
     let minecraft (win : IRenderWindow) (tex : ITexture) (tree : Octree<BoxInfo>) (playerHeight : float) =
@@ -302,12 +302,12 @@ module World =
                 V3d(-47.0,-63.0,80.0)
                 V3d(7.0,-65.0,83.0)
                 V3d(-39.0,-64.0,74.0)
-            |]
+            |] |> Array.map (fun s -> s + V3d.OOI*5.0)
         let respawnLocation() = spawns.[rand.UniformInt(spawns.Length-1)]
         {
             Hit = hit
             Intersections = fun r tmin tmax -> Octree.rayIntersections r tmin tmax tree
             Scene = fun _ -> sg
             Bounds = bounds
-            RespawnLocation = respawnLocation
+            SpawnLocation = respawnLocation
         }

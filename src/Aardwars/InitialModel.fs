@@ -20,7 +20,8 @@ module Game =
             let atlas, tree = MinecraftWorld.load env.Runtime texturesPath mapPath
             World.minecraft env.Window atlas tree 1.75
         
-        let cam = {CameraController.initial with camera = CameraView.lookAt V3d.Zero V3d.IOO V3d.OOI}
+        let spawn = world.SpawnLocation() + V3d.OOI*50.0
+        let cam = {CameraController.initial with camera = CameraView.lookAt spawn (spawn+V3d.IOO) V3d.OOI}
 
         
         let model = {

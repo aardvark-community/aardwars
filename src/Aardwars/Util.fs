@@ -335,7 +335,7 @@ module NetworkCommand =
         | NetworkCommand.Died(k,d,w) -> sprintf "#died %s,%s,%d" k d w
         | NetworkCommand.UpdatePosition(p,fw,w,rld) -> sprintf "#update %f,%f,%f,%f,%f,%f,%d,%b" p.X p.Y p.Z fw.X fw.Y fw.Z w rld
         | NetworkCommand.Hit(p, d, sd, w) -> sprintf "#hit %s,%f,%f,%f,%f,%d" p d sd.X sd.Y sd.Z w
-        | NetworkCommand.HitWithSlap(p,d,v,sd,w) -> sprintf "#hit %s,%f,%f,%f,%f,%f,%f,%f,%d" p d v.X v.Y v.Z sd.X sd.Y sd.Z w
+        | NetworkCommand.HitWithSlap(p,d,v,sd,w) -> sprintf "#hitwithslap %s,%f,%f,%f,%f,%f,%f,%f,%d" p d v.X v.Y v.Z sd.X sd.Y sd.Z w
         | NetworkCommand.SpawnShotTrails trails -> 
             sprintf 
                 "#spawntrails %s" 
@@ -395,11 +395,11 @@ module NetworkCommand =
                     let inline ff i = float data.[i]
                     Some (NetworkCommand.Explode (data.[0],V3d(ff 1, ff 2, ff 3), ff 4, ff 5, ff 6, ff 7))
                 | _ -> 
-                    printfn "BAD CMD: %A" cmd
+                    printfn "BAD CMD (unknown cmd name): %A" cmd
                     None
                 
             else
-                printfn "BAD CMD: %A" str
+                printfn "BAD CMD (regex didn't match): %A" str
                 None
         with e ->
             printfn "BAD CMD: %A (%A)" str e

@@ -239,7 +239,7 @@ module Weapon =
 
     let laserGun =
         let damage = Range1d(5,20)
-        let spread = 0.01275
+        let spread = 0.01975
         let createHitrays (cv : CameraView) : list<Ray3d> = 
             let u = (rand.UniformDouble() * 2.0 - 1.0) * spread
             let v = (rand.UniformDouble() * 2.0 - 1.0) * spread
