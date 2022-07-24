@@ -14,6 +14,7 @@ type World =
         Hit : V3d -> V3d -> V3d * bool
         Intersections : Ray3d -> float -> float -> seq<float * BoxInfo>
         Scene : IRenderWindow -> ISg
+        RespawnLocation : unit -> V3d
     }
 
 module World =
@@ -82,11 +83,14 @@ module World =
                 do! DefaultSurfaces.trafo
                 do! DefaultSurfaces.diffuseTexture
             }
+        let respawn() =
+            V3d.OOI * 5.0
         {
             Hit = hit
             Scene = fun _ -> sg
             Intersections = fun _ _ _ -> Seq.empty
             Bounds = Box3d.FromCenterAndSize(V3d.Zero, V3d(200.0, 200.0, 1.0))
+            RespawnLocation = respawn
         }
 
     let minecraft (win : IRenderWindow) (tex : ITexture) (tree : Octree<BoxInfo>) (playerHeight : float) =
@@ -273,9 +277,37 @@ module World =
             }   
             |> Sg.texture' "Atlas" tex
             |> Sg.cullMode' CullMode.Back
+        let bounds = tree.BoundingBox
+        let rand = RandomSystem()
+        let inline randomBetween mi ma =
+            let r = rand.UniformDouble()
+            let range = ma - mi
+            mi + range * r
+        let spawns = 
+            [|
+                V3d(20.0,-64.5,82.0)
+                V3d(63.5,-51.0,78.0)
+                V3d(80.5,-41.0,85.0)
+                V3d(84.5,-8.5,72.5)
+                V3d(72.5,25.5,80.5)
+                V3d(52.5,48.0,87.0)
+                V3d(43.5,74.0,93.0)
+                V3d(-1.5,90.0,86.0)
+                V3d(-44.0,98.5,90.5)
+                V3d(-70.5,76.5,76.0)
+                V3d(-90.0,63.0,85.5)
+                V3d(-72.0,-6.5,92.0)
+                V3d(-72.0,-6.5,92.0)
+                V3d(-60.0,-43.0,80.0)
+                V3d(-47.0,-63.0,80.0)
+                V3d(7.0,-65.0,83.0)
+                V3d(-39.0,-64.0,74.0)
+            |]
+        let respawnLocation() = spawns.[rand.UniformInt(spawns.Length-1)]
         {
             Hit = hit
             Intersections = fun r tmin tmax -> Octree.rayIntersections r tmin tmax tree
             Scene = fun _ -> sg
-            Bounds = tree.BoundingBox
+            Bounds = bounds
+            RespawnLocation = respawnLocation
         }

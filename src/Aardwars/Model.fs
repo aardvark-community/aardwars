@@ -159,6 +159,18 @@ type Model =
         tabDown             : bool
         gotHitIndicatorInstances : HashSet<GotHitIndicatorInstance>
         hitEnemyIndicatorInstances : HashMap<string,float>
+        lastPositionReset : float
+        lastGotHit : Option<string * WeaponType>
+        deathTime : Option<float>
+        gameEndTime : Option<float>
+        timeLeft : float
     }
+module Model =
+    let amDead (m : Model) =
+        m.deathTime |> Option.isSome
+    let gameIsRunning (m : Model) =
+        m.gameEndTime |> Option.isNone
+    let controlsDisabled (m : Model) = 
+        amDead m || not (gameIsRunning m)
 
 

@@ -13,11 +13,16 @@ open System.Text
 open System.Text.RegularExpressions
 open FShade
 
+type StartReloadTimeInfo =
+    | Not
+    | PausedReload of float
+    | Reloading of float
+    with member x.NotReloading = match x with Not -> true | _ -> false
 
 type AmmoInfo = 
     {
         reloadTime : float
-        startReloadTime : Option<float>
+        startReloadTime : StartReloadTimeInfo
         maxShots : int
         availableShots : int
     }
@@ -26,9 +31,27 @@ type AmmunitionType =
     | Endless
     | Limited of AmmoInfo
 module AmmunitionType =
+    let reload (ammoType : AmmunitionType) =
+        match ammoType with
+        | Endless -> Endless
+        | Limited ammoInfo -> Limited {ammoInfo with availableShots = ammoInfo.maxShots; startReloadTime = Not}
+
+    let startReload (ammoType : AmmunitionType) (startTime : float) =
+        match ammoType with
+        | Endless -> Endless
+        | Limited ammoInfo -> 
+            if ammoInfo.availableShots < ammoInfo.maxShots then 
+                match ammoInfo.startReloadTime with 
+                | Not -> Limited {ammoInfo with startReloadTime = Reloading startTime}
+                | _ -> Limited ammoInfo
+            else Limited ammoInfo
+    
     let isReloading (a : AmmunitionType) =
         match a with
-        | Limited ammo -> ammo.startReloadTime |> Option.isSome
+        | Limited ammo -> 
+            match ammo.startReloadTime with 
+            | Not -> false
+            | _ -> true
         | _ -> false
     let isEmpty (a : AmmunitionType) =
         match a with
@@ -58,7 +81,14 @@ module WeaponType =
         | 3 -> RocketLauncher 
         | 4 -> RainbowGun   
         | _ -> failwith "ashudfchza"
-        
+    let toString (w : WeaponType) =
+        match w with 
+        | LaserGun -> "Laser Gun"
+        | Shotgun -> "Shotgun"
+        | RocketLauncher -> "Rocket Launcher"
+        | RainbowGun -> "Rainbow Gun"
+        | Sniper -> "Sniper Rifle"
+
 
 type TrailInfo = 
     {
@@ -88,8 +118,6 @@ type OtherPlayerInfo =
         color : string
         pos : V3d
         fw : V3d
-        up : V3d
-        ri : V3d
         weapon : WeaponType
         reloading : bool
         frags : int
@@ -138,7 +166,8 @@ module Weapon =
 
         match t with
         | Endless -> cooldownFinished
-        | Limited ammoInfo -> ammoInfo.availableShots > 0 && ammoInfo.startReloadTime.IsNone && cooldownFinished
+        | Limited ammoInfo -> 
+            ammoInfo.availableShots > 0 && ammoInfo.startReloadTime.NotReloading && cooldownFinished
 
 
     let updateAmmo (currentAmmo : AmmunitionType) =
@@ -152,21 +181,6 @@ module Weapon =
                        
             Limited {ammoInfo with availableShots = updatedAmmoInfo}
 
-    let reload (ammoType : AmmunitionType) =
-        match ammoType with
-        | Endless -> Endless
-        | Limited ammoInfo -> Limited {ammoInfo with availableShots = ammoInfo.maxShots; startReloadTime = None}
-
-    let startReload (ammoType : AmmunitionType) (startTime : float) =
-        match ammoType with
-        | Endless -> Endless
-        | Limited ammoInfo -> 
-            if ammoInfo.availableShots < ammoInfo.maxShots then 
-                match ammoInfo.startReloadTime with 
-                | Some _ -> Limited ammoInfo
-                | None -> Limited {ammoInfo with startReloadTime = Some startTime}
-            else Limited ammoInfo
-    
     
     //let cooldownFinished (lastShotTime : float) (waitTimeBetweenShots : float) (currentTime : float) : bool =
     //    lastShotTime + waitTimeBetweenShots <= currentTime
@@ -224,8 +238,8 @@ module Weapon =
         hitTargets,hitPlayers,floorHits
 
     let laserGun =
-        let damage = Range1d(10,20)
-        let spread = 0.0125
+        let damage = Range1d(5,20)
+        let spread = 0.01275
         let createHitrays (cv : CameraView) : list<Ray3d> = 
             let u = (rand.UniformDouble() * 2.0 - 1.0) * spread
             let v = (rand.UniformDouble() * 2.0 - 1.0) * spread
@@ -286,8 +300,8 @@ module Weapon =
             calculateDamage     = calculateDamage
             processHits         = processHits
             updateAmmo          = updateAmmo
-            reload              = reload
-            startReload         = startReload
+            reload              = AmmunitionType.reload
+            startReload         = AmmunitionType.startReload
             lastShotTime        = None
             waitTimeBetweenShots = 0.0
         }
@@ -345,10 +359,10 @@ module Weapon =
             name                 = "Shotgun"
             cooldown             = 0.5
             ammo                 = Limited {
-                                             reloadTime      = 1.25
+                                             reloadTime      = 1.55
                                              maxShots        = 2
                                              availableShots  = 2
-                                             startReloadTime = None
+                                             startReloadTime = Not
                                            }
             range               = 25.0
             canShoot            = canShoot
@@ -358,14 +372,14 @@ module Weapon =
             processHits         = processHits
             updateAmmo          = updateAmmo
             calculateDamage     = calculateDamage
-            reload              = reload
-            startReload         = startReload
+            reload              = AmmunitionType.reload
+            startReload         = AmmunitionType.startReload
             lastShotTime        = None
             waitTimeBetweenShots = 0.2
         }
 
     let sniper : Weapon =
-        let damage = Range1d(90, 90)
+        let damage = Range1d(90, 92)
         let createHitrays (cv : CameraView) : list<Ray3d> = 
             let p = cv.Location
             let d = cv.Forward
@@ -382,7 +396,7 @@ module Weapon =
                     realLine = rline
                     offsetLine = oline
                     startTime = time
-                    duration = 1.0
+                    duration = 2.5
                 }
             )
         let calculateDamage (hitCount : int) : int =                        
@@ -415,10 +429,10 @@ module Weapon =
             name                 = "Sniper"
             cooldown             = 0.0
             ammo                 = Limited {
-                                                reloadTime      = 2.0
+                                                reloadTime      = 2.35
                                                 maxShots        = 3
                                                 availableShots  = 3
-                                                startReloadTime = None
+                                                startReloadTime = Not
                                             }
             range               = 1000.0
             canShoot            = canShoot
@@ -428,8 +442,8 @@ module Weapon =
             createProjectiles = fun _ -> []
             updateAmmo          = updateAmmo
             calculateDamage     = calculateDamage
-            reload              = reload
-            startReload         = startReload
+            reload              = AmmunitionType.reload
+            startReload         = AmmunitionType.startReload
             lastShotTime        = None
             waitTimeBetweenShots = 1.0
         }
@@ -451,7 +465,9 @@ module Weapon =
                     let p1 = shotRay.Origin + range * shotRay.Direction
                     let rline = Line3d(shotRay.Origin, p1)
                     let oline = Line3d(p0, p1)
-                    let color = (Elm.Shader.hsv2rgb (rand.UniformDouble()) 1.0 1.0).ToC4f().ToC4b()
+                    let color =
+                        let h = (rand.UniformDouble())
+                        HSVf(h,1.0,1.0).ToC3f().ToC4b()
                     {
                         color = color
                         realLine = rline
@@ -490,10 +506,10 @@ module Weapon =
                 name                 = "Rainbowgun"
                 cooldown             = 0.0
                 ammo                 = Limited {
-                                                 reloadTime      = 1.0
+                                                 reloadTime      = 1.85
                                                  maxShots        = 30
                                                  availableShots  = 30
-                                                 startReloadTime = None
+                                                 startReloadTime = Not
                                                }
                 range               = 100.0
                 canShoot            = canShoot
@@ -503,8 +519,8 @@ module Weapon =
                 processHits         = processHits
                 updateAmmo          = updateAmmo
                 calculateDamage     = calculateDamage
-                reload              = reload
-                startReload         = startReload
+                reload              = AmmunitionType.reload
+                startReload         = AmmunitionType.startReload
                 lastShotTime        = None
                 waitTimeBetweenShots = 0.1
 
@@ -535,10 +551,10 @@ module Weapon =
             name                 = "Rocket Launcher"
             cooldown             = 0.05
             ammo                 = Limited {
-                                                reloadTime      = 1.25
+                                                reloadTime      = 1.95
                                                 maxShots        = 5
                                                 availableShots  = 5
-                                                startReloadTime = None
+                                                startReloadTime = Not
                                             }
             range               = 12345.0
             canShoot            = canShoot
@@ -548,11 +564,21 @@ module Weapon =
             processHits         = fun _ _ -> HashMap.empty
             updateAmmo          = updateAmmo
             calculateDamage     = fun _ -> 0
-            reload              = reload
-            startReload         = startReload
+            reload              = AmmunitionType.reload
+            startReload         = AmmunitionType.startReload
             lastShotTime        = None
             waitTimeBetweenShots = 0.05
         }
+    let lg =
+        lazy Import.importGun("gun") 
+    let sg = 
+        lazy Import.importGun("shotgun")
+    let sn =
+        lazy Import.importGun("sniper")
+    let rg =
+        lazy Import.importGun("rainbowgun")
+    let rl = 
+        lazy Import.importGun("rocketlauncher")
 
     let gunModel (activeWeapon : aval<WeaponType>) (isReloading : aval<bool>) (gunMotionTrafo : aval<Trafo3d>)=
         let modelTrafo = 
@@ -597,32 +623,21 @@ module Weapon =
             }
             >> Sg.uniform "Dark" (isReloading |> AVal.map (fun r -> if r then 1.0f else 0.0f))
                 
-        let lg =
-            Import.importGun("gun") 
-        let sg = 
-            Import.importGun("shotgun")
-        let sn =
-            Import.importGun("sniper")
-        let rg =
-            Import.importGun("rainbowgun")
-        let rl = 
-            Import.importGun("rocketlauncher")
         //activeWeapon
         //|> AVal.map (function 
-        //    | LaserGun ->       lg |> modelSurface
-        //    | Shotgun ->        sg |> modelSurface
-        //    | Sniper ->         sn |> modelSurface
-        //    | RainbowGun ->     rg |> modelSurface
-        //    | RocketLauncher -> rl |> modelSurface
+        //    | LaserGun ->       lg.Value |> modelSurface
+        //    | Shotgun ->        sg.Value |> modelSurface
+        //    | Sniper ->         sn.Value |> modelSurface
+        //    | RainbowGun ->     rg.Value |> modelSurface
+        //    | RocketLauncher -> rl.Value |> modelSurface
         //)
         //|> Sg.dynamic
-
         Sg.ofList [
-            lg |> modelSurface |> Sg.onOff (activeWeapon |> AVal.map (fun aw -> aw=LaserGun      ))
-            sg |> modelSurface |> Sg.onOff (activeWeapon |> AVal.map (fun aw -> aw=Shotgun       ))
-            sn |> modelSurface |> Sg.onOff (activeWeapon |> AVal.map (fun aw -> aw=Sniper        ))
-            rg |> modelSurface |> Sg.onOff (activeWeapon |> AVal.map (fun aw -> aw=RainbowGun    ))
-            rl |> modelSurface |> Sg.onOff (activeWeapon |> AVal.map (fun aw -> aw=RocketLauncher))
+            lg.Value |> modelSurface |> Sg.onOff (activeWeapon |> AVal.map (fun aw -> aw=LaserGun      ))
+            sg.Value |> modelSurface |> Sg.onOff (activeWeapon |> AVal.map (fun aw -> aw=Shotgun       ))
+            sn.Value |> modelSurface |> Sg.onOff (activeWeapon |> AVal.map (fun aw -> aw=Sniper        ))
+            rg.Value |> modelSurface |> Sg.onOff (activeWeapon |> AVal.map (fun aw -> aw=RainbowGun    ))
+            rl.Value |> modelSurface |> Sg.onOff (activeWeapon |> AVal.map (fun aw -> aw=RocketLauncher))
         ]
         |> Sg.trafo gunMotionTrafo
         |> Sg.trafo modelTrafo

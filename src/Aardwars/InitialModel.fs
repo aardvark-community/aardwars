@@ -14,43 +14,25 @@ open Aardvark.Rendering.Text
 
 module Game =
 
-    let intitial (texturesPath : string) (mapPath : string) (env : Environment<Message>) = 
+    let intitial (client : NetworkClient) (texturesPath : string) (mapPath : string) (env : Environment<Message>) = 
         
-        //let world = World.randomGenerated 0 (V2i(150,150)) 1.75
         let world = 
             let atlas, tree = MinecraftWorld.load env.Runtime texturesPath mapPath
             World.minecraft env.Window atlas tree 1.75
-        let random = System.Random()
-
-        let center = world.Bounds.Min.XYO + world.Bounds.RangeZ.Center * V3d.OOI + V3d.IIO + V3d(random.Next(45,100),random.Next(45,100),random.Next(-40,-35))
         
-        let cam = { CameraController.initial with camera = CameraView.lookAt center (center + V3d.IOO) V3d.OOI }
+        let cam = {CameraController.initial with camera = CameraView.lookAt V3d.Zero V3d.IOO V3d.OOI}
 
-        let (p1, floor) = 
-            world.Hit (cam.camera.Location + V3d(0,0,1000)) cam.camera.Location
-
-        let random = System.Random() 
-            
-        let initialTargets = 
-            HashMap.ofList [
-                for i = 0 to 20 - 1 do
-                    let randomHealth = random.Next(10,200)
-                    let randomRadius = random.Next(3,10)
-                    let randomPosition = V3d(random.Next(-50,50),random.Next(-50,50),random.Next(3,20))
-                    let name = sprintf "target_%i" i
-                    name,{currentHp = randomHealth; maxHp = randomHealth; pos = randomPosition ;radius = randomRadius }   
-            ]
         
-        {
+        let model = {
             world = world
-            onFloor = floor
+            onFloor = false
             size = V2i.II
-            camera = { cam with camera = cam.camera.WithLocation(p1) }
+            camera = cam
             proj = Frustum.perspective 150.0 0.1 1000.0 1.0
             isZoomed = false
             time = 0.0
             lastDt = 0.1
-            targets = initialTargets
+            targets = HashMap.empty
             moveSpeed = 10.0
             airAccel = 0.0015
             weapons = HashMap.ofArray[|
@@ -78,7 +60,13 @@ module Game =
             tabDown=false
             gotHitIndicatorInstances=HashSet.empty
             hitEnemyIndicatorInstances=HashMap.empty
+            deathTime=None
+            lastPositionReset=0.0
+            gameEndTime = None
+            timeLeft=PlayerConstant.roundTime
+            lastGotHit=None
         }
+        Update.update client env model Respawn
         
     let playerModels = 
         HashMap.ofList [
@@ -207,16 +195,19 @@ module Game =
                         | Endless -> AVal.constant (sprintf "HP: %.0f\nAmmo: Inf" hp)
                         | Limited ammoInfo -> 
                             match ammoInfo.startReloadTime with 
-                            | Some st -> 
+                            | Not ->  
+                                AVal.constant (sprintf "HP:%.0f\nAmmo: %i/%i" hp ammoInfo.availableShots ammoInfo.maxShots)
+                            | PausedReload st -> AVal.constant ""
+                            | Reloading st -> 
                                 model.time |> AVal.map (fun t -> 
                                     let left = ammoInfo.reloadTime - (t-st)
                                     (sprintf "HP:%.0f\nAmmo: %i/%i (reloading %.1f)" hp ammoInfo.availableShots ammoInfo.maxShots left)
                                 )
-                            | None ->  
-                                AVal.constant (sprintf "HP:%.0f\nAmmo: %i/%i" hp ammoInfo.availableShots ammoInfo.maxShots)
                     )
 
+                let onOff = (model.deathTime,model.gameEndTime) ||> AVal.map2 (fun d e -> (d |> Option.isNone) && (e |> Option.isNone))
                 Text.weaponTextSg env.Window text
+                |> Sg.onOff onOff
 
             [ velocitySg; statsSg; scoreboardSg] |> Sg.ofList
                 
@@ -226,6 +217,13 @@ module Game =
         let projectileSg = Projectile.scene model.projectiles
         let explosionSg = Projectile.explosionScene model.time model.explosionAnimations
         let killfeedSg = Text.killfeed env.Window model.time model.killfeed
+        let deathScreenSg = 
+            let timeUntil = 
+                (model.time,model.deathTime) ||> AVal.map2 (fun t dt -> dt|>Option.bind (fun dt -> 
+                    let rem = dt+PlayerConstant.respawnDelay-t
+                    if rem > 0.0 then Some rem else None
+                ))
+            Text.deathScreenSg env.Window (model.deathTime |> AVal.map Option.isSome) (model.lastGotHit |> AVal.map (Option.defaultValue ("",WeaponType.LaserGun))) timeUntil
         let gotHitIndicatorsSg = GotHitIndicatorInstance.scene model.time fw loc model.gotHitIndicatorInstances
         let hitEnemyIndicatorSg = HitEnemyMarkerInstance.scene model.time model.hitEnemyIndicatorInstances
         let targetsSg =
@@ -260,26 +258,26 @@ module Game =
                 model.otherPlayers
                 |> AMap.map (fun name info -> playerModels.[info.color])
             let ii = AVal.constant Trafo3d.Identity
-            let gunTrafos = 
-                model.otherPlayers |> AMap.map (fun _ i -> 
-                    let info = i
-                    Trafo3d.Scale(1.0/2.5) *
-                    Trafo3d.FromBasis(i.fw,i.ri,i.up,i.pos)
-                )
-            let gunTypes = 
-                model.otherPlayers |> AMap.map (fun name info -> info.weapon)
-            let gunReloadings = 
-                model.otherPlayers |> AMap.map (fun name info -> info.reloading)
-            let guns = 
-                model.otherPlayers |> AMap.map (fun name info -> 
-                    let trafo = gunTrafos |> AMap.find name
-                    let gun = gunTypes |> AMap.find name
-                    let rld = gunReloadings |> AMap.find name
-                    Weapon.gunModel gun rld ii
-                    |> Sg.trafo trafo
-                )
-                |> AMap.toASetValues
-                |> Sg.set
+            //let gunTrafos = 
+            //    model.otherPlayers |> AMap.map (fun _ i -> 
+            //        let info = i
+            //        Trafo3d.Scale(1.0/2.5) *
+            //        Trafo3d.FromBasis(i.fw,i.ri,i.up,i.pos)
+            //    )
+            //let gunTypes = 
+            //    model.otherPlayers |> AMap.map (fun name info -> info.weapon)
+            //let gunReloadings = 
+            //    model.otherPlayers |> AMap.map (fun name info -> info.reloading)
+            //let guns = 
+            //    model.otherPlayers |> AMap.map (fun name info -> 
+            //        let trafo = gunTrafos |> AMap.find name
+            //        let gun = gunTypes |> AMap.find name
+            //        let rld = gunReloadings |> AMap.find name
+            //        Weapon.gunModel gun rld ii
+            //        |> Sg.trafo trafo
+            //    )
+            //    |> AMap.toASetValues
+            //    |> Sg.set
 
             let players = 
                 models |> AMap.toASet |> ASet.map (fun (name,model) -> 
@@ -323,6 +321,7 @@ module Game =
                 targetsSg
                 trailsSg
                 otherPlayers
+                deathScreenSg
                 //hitBoxes
                 hits
                 projectileSg

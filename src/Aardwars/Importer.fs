@@ -19,6 +19,8 @@ module PlayerConstant =
     let killfeedLength = 6
     let gotHitMarkerDuration = 1.0
     let hitEnemyMarkerDuration = 0.125
+    let respawnDelay = 3.0
+    let roundTime = 390.0
     
 module EmbeddedResource =
 

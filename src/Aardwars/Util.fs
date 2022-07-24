@@ -193,6 +193,8 @@ module Passes =
     let pass1 = (RenderPass.after "shots" RenderPassOrder.Arbitrary pass0)
     let pass2 = (RenderPass.after "weapon" RenderPassOrder.Arbitrary pass1)
     let pass3 = (RenderPass.after "text" RenderPassOrder.Arbitrary pass2)
+    let pass4 = (RenderPass.after "overlay" RenderPassOrder.Arbitrary pass3)
+    let pass5 = (RenderPass.after "overlayText" RenderPassOrder.Arbitrary pass4)
                 
 
 open System.Text.RegularExpressions
@@ -200,7 +202,7 @@ open System.Text.RegularExpressions
 [<RequireQualifiedAccess>]
 type NetworkCommand =
     | Connect of name : string
-    | UpdatePosition of pos:V3d*fw:V3d*up:V3d*ri:V3d*w:int*rld:bool
+    | UpdatePosition of pos:V3d*fw:V3d*w:int*rld:bool
     | Hit of playerName : string * damage : float * sourceDir : V3d * w : int
     | HitWithSlap of playerName : string * damage : float * slap : V3d * sourceDir : V3d * w : int
     | Died of killingPlayer : string * diedPlayer : string * w : int
@@ -212,7 +214,7 @@ type NetworkCommand =
 [<RequireQualifiedAccess>]
 type NetworkMessage =
     | Stats of Map<string, int*int*string>
-    | UpdatePosition of playerName : string * pos:V3d*fw:V3d*up:V3d*ri:V3d*w:int*rld:bool
+    | UpdatePosition of playerName : string * pos:V3d*fw:V3d*w:int*rld:bool
     | SpawnShotTrails of list<Line3d * float * float * C4b>
     | Connected of playerName : string
     | Disconnected of playerName : string
@@ -237,8 +239,8 @@ module NetworkMessage =
                     (trails |> List.map (fun (l,s,d,c) -> 
                         sprintf "%f:%f:%f:%f:%f:%f:%f:%f:%i:%i:%i" l.P0.X l.P0.Y l.P0.Z l.P1.X l.P1.Y l.P1.Z s d c.R c.G c.B
                     ) |> String.concat ",") 
-        | NetworkMessage.UpdatePosition(n, p, fw, up, ri, w, rld) ->
-            sprintf "#update %s,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%d,%b" n p.X p.Y p.Z fw.X fw.Y fw.Z up.X up.Y up.Z ri.X ri.Y ri.Z w rld
+        | NetworkMessage.UpdatePosition(n, p, fw, w, rld) ->
+            sprintf "#update %s,%f,%f,%f,%f,%f,%f,%d,%b" n p.X p.Y p.Z fw.X fw.Y fw.Z w rld
         | NetworkMessage.Connected(n) ->
             sprintf "#connected %s" n
         | NetworkMessage.Disconnected(n) ->
@@ -266,7 +268,7 @@ module NetworkMessage =
                 let data = m.Groups.[2].Value.Split(',',StringSplitOptions.RemoveEmptyEntries)
                 match cmd with
                 | "update" ->
-                    NetworkMessage.UpdatePosition(data.[0], V3d(float data.[1], float data.[2], float data.[3]), V3d(float data.[4], float data.[5], float data.[6]), V3d(float data.[7], float data.[8], float data.[9]), V3d(float data.[10], float data.[11], float data.[12]), int data.[13], System.Boolean.Parse data.[14]) |> Some
+                    NetworkMessage.UpdatePosition(data.[0], V3d(float data.[1], float data.[2], float data.[3]), V3d(float data.[4], float data.[5], float data.[6]), int data.[7], System.Boolean.Parse data.[8]) |> Some
                 | "connected" ->
                     NetworkMessage.Connected data.[0] |> Some
                 | "disconnected" ->
@@ -331,7 +333,7 @@ module NetworkCommand =
         | NetworkCommand.Connect n -> sprintf "#connect %s" n
         | NetworkCommand.Stats -> "#stats"
         | NetworkCommand.Died(k,d,w) -> sprintf "#died %s,%s,%d" k d w
-        | NetworkCommand.UpdatePosition(p,fw,up,ri,w,rld) -> sprintf "#update %f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%f,%d,%b" p.X p.Y p.Z fw.X fw.Y fw.Z up.X up.Y up.Z ri.X ri.Y ri.Z w rld
+        | NetworkCommand.UpdatePosition(p,fw,w,rld) -> sprintf "#update %f,%f,%f,%f,%f,%f,%d,%b" p.X p.Y p.Z fw.X fw.Y fw.Z w rld
         | NetworkCommand.Hit(p, d, sd, w) -> sprintf "#hit %s,%f,%f,%f,%f,%d" p d sd.X sd.Y sd.Z w
         | NetworkCommand.HitWithSlap(p,d,v,sd,w) -> sprintf "#hit %s,%f,%f,%f,%f,%f,%f,%f,%d" p d v.X v.Y v.Z sd.X sd.Y sd.Z w
         | NetworkCommand.SpawnShotTrails trails -> 
@@ -359,7 +361,7 @@ module NetworkCommand =
                 | "connect" -> NetworkCommand.Connect data.[0] |> Some
                 | "stats" -> NetworkCommand.Stats |> Some
                 | "died" -> NetworkCommand.Died(data.[0],data.[1],int data.[2]) |> Some
-                | "update" -> NetworkCommand.UpdatePosition(V3d(float data.[0], float data.[1], float data.[2]), V3d(float data.[3], float data.[4], float data.[5]), V3d(float data.[6], float data.[7], float data.[8]), V3d(float data.[9], float data.[10], float data.[11]), int data.[12], System.Boolean.Parse data.[13])|> Some
+                | "update" -> NetworkCommand.UpdatePosition(V3d(float data.[0], float data.[1], float data.[2]), V3d(float data.[3], float data.[4], float data.[5]), int data.[6], System.Boolean.Parse data.[7])|> Some
                 | "hit" -> NetworkCommand.Hit(data.[0], float data.[1], V3d(float data.[2], float data.[3], float data.[4]), int data.[5]) |> Some
                 | "hitwithslap" -> NetworkCommand.HitWithSlap(data.[0], float data.[1], V3d(float data.[2], float data.[3], float data.[4]), V3d(float data.[5], float data.[6], float data.[7]), int data.[8]) |> Some
                 | "spawntrails" -> 
@@ -507,8 +509,8 @@ module NetworkGroup =
                                             match NetworkCommand.unpickle msg with
                                             | Some cmd ->
                                                 match cmd with
-                                                | NetworkCommand.UpdatePosition(p,fw,up,ri,w,rld) ->
-                                                    broadcast (NetworkMessage.UpdatePosition(clientId,p,fw,up,ri,w,rld))
+                                                | NetworkCommand.UpdatePosition(p,fw,w,rld) ->
+                                                    broadcast (NetworkMessage.UpdatePosition(clientId,p,fw,w,rld))
                                                 | NetworkCommand.Died(cause,died,gun) ->
                                                     let v = {diedPlayer=died;killingPlayer=cause;gun=gun}
                                                     frags.AddOrUpdate(cause, (fun _ -> [v]), (fun _ o -> v::o)) |> ignore

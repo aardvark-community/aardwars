@@ -35,7 +35,7 @@ let main (args : string[]) =
     let client = Elm.NetworkGroup.client server port
 
     do 
-        let initial = Elm.Game.intitial texturesPath mapPath
+        let initial = Elm.Game.intitial client texturesPath mapPath
         let app = Elm.App.create initial (Update.update client) (Elm.Game.view client)
         Elm.App.run win app
         exit 0

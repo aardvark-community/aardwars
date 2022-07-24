@@ -28,7 +28,7 @@ type Message =
     | Explode of ExplosionInfo
     | CreateExplosionAnimation of ExplosionAnimationInfo
     | Shoot
-    | UpdatePlayerPos of string * pos:V3d*fw:V3d*up:V3d*ri:V3d*w:int*rld:bool
+    | UpdatePlayerPos of string * pos:V3d*fw:V3d*w:int*rld:bool
     | HitBy of string * float * V3d * WeaponType
     | HitByWithSlap of string * float * V3d * V3d * WeaponType
     | UpdateStats of Map<string,(int*int*string)>
@@ -38,6 +38,9 @@ type Message =
     | HitEnemyWithSlap of enemyName:string * damage:float * vel:V3d * sourcePos:V3d * w:WeaponType
     | CreateGotHitIndicatorInstance of sourcePos:V3d*dmg:float
     | CreateHitEnemyIndicatorInstance of name:string
+    | TeleportToSpawnLocation
+    | Respawn
+    | ResetPlayerState
 
 module Update =
     let rand = RandomSystem()
@@ -53,8 +56,8 @@ module Update =
     
         client.receive.Add (fun msg ->
             match msg with
-            | NetworkMessage.UpdatePosition(player,pos,fw,up,ri,w,rld) ->
-                env.Emit [UpdatePlayerPos(player,pos,fw,up,ri,w,rld)]
+            | NetworkMessage.UpdatePosition(player,pos,fw,w,rld) ->
+                env.Emit [UpdatePlayerPos(player,pos,fw,w,rld)]
             | NetworkMessage.Hit(player, dmg, sd,w) ->
                 env.Emit [HitBy(player, dmg, sd, WeaponType.unpickle w)]
             | NetworkMessage.HitWithSlap(player, dmg, vel, sd,w) ->
@@ -109,8 +112,6 @@ module Update =
             env.Emit [ MouseScroll b ]
         )
 
-
-        
         let sw = System.Diagnostics.Stopwatch.StartNew()
         let mutable last = sw.Elapsed.TotalSeconds
         let timer = 
@@ -148,8 +149,10 @@ module Update =
                     camera = 
                         { newModel.camera with 
                             velocity = 
-                                let vn = Fun.Lerp(0.1, newModel.camera.velocity, newModel.camera.move)
-                                V3d(vn.X,vn.Y,newModel.camera.move.Z)
+                                if Model.controlsDisabled m then V3d.Zero
+                                else 
+                                    let vn = Fun.Lerp(0.1, newModel.camera.velocity, newModel.camera.move)
+                                    V3d(vn.X,vn.Y,newModel.camera.move.Z)
                         } 
                 }
             else
@@ -157,46 +160,36 @@ module Update =
                     camera = 
                         { newModel.camera with 
                             velocity =      
-                                //let vn = Fun.Lerp(0.05, newModel.camera.velocity, newModel.camera.move)
-                                
-                                let x = model.airAccel * newModel.camera.move.X + newModel.camera.velocity.X
-                                let y = model.airAccel * newModel.camera.move.Y + newModel.camera.velocity.Y
-                                V3d(x,y,newModel.camera.velocity.Z)
+                                if Model.controlsDisabled m then V3d.Zero
+                                else 
+                                    let x = model.airAccel * newModel.camera.move.X + newModel.camera.velocity.X
+                                    let y = model.airAccel * newModel.camera.move.Y + newModel.camera.velocity.Y
+                                    V3d(x,y,newModel.camera.velocity.Z)
                         } 
                 }
 
         match message with
         | HitBy(player, dmg, sd, w) ->
-            let hp = model.currentHp - dmg
-            env.Emit [CreateGotHitIndicatorInstance(sd,dmg)]
-            if hp <= 0.0 then
-                client.send (NetworkCommand.Died(player,model.playerName,w |> WeaponType.pickle))
-                env.Emit [KillfeedMessage(player,model.playerName,w)]
-
-                let b = model.world.Bounds
-                let respawnLocation = 
-                    let p = rand.UniformV2d(Box2d(b.Min.XY, b.Max.XY))
-                    V3d(p, b.Max.Z)
-                let newCameraView = model.camera.camera.WithLocation(respawnLocation)
-                let modelCamera = { model.camera with camera = newCameraView  }
-
-                { model with
-                    maxHp = 100.0
-                    currentHp = 100.0
-                    camera = modelCamera
-                }
+            if (Model.amDead model) then model 
             else
-                { model with currentHp = hp }
+                let hp = model.currentHp - dmg
+                if hp <= 0.0 then   
+                    let model = {model with lastGotHit=Some (player,w)}
+                    client.send (NetworkCommand.Died(player,model.playerName,w |> WeaponType.pickle))
+                    env.Emit [KillfeedMessage(player,model.playerName,w)]
+                    {model with deathTime=Some model.time;camera={model.camera with blastVelocity=V3d.Zero}}
+                else
+                    env.Emit [CreateGotHitIndicatorInstance(sd,dmg)]
+                    {model with currentHp = hp}
         | HitByWithSlap(player, dmg, vel, sd,w) ->
             env.Emit [HitBy(player,dmg, sd,w)]
             {model with 
                 camera =
                     {model.camera with blastVelocity = model.camera.blastVelocity + vel}
             }
-        | UpdatePlayerPos(player, pos, fw, up, ri, w, rld) ->
+        | UpdatePlayerPos(player, pos, fw, w, rld) ->
             let w = WeaponType.unpickle w
-            { model with otherPlayers = HashMap.alter player (function Some o -> Some {o with pos=pos;fw=fw;weapon=w} | None -> Some {pos=pos;fw=fw;up=up;ri=ri;reloading=rld;weapon=w;frags=0;deaths=0;color="yellow"}) model.otherPlayers }
-
+            { model with otherPlayers = HashMap.alter player (function Some o -> Some {o with pos=pos;fw=fw;weapon=w} | None -> Some {pos=pos;fw=fw;reloading=rld;weapon=w;frags=0;deaths=0;color="yellow"}) model.otherPlayers }
         | MouseMove delta -> model |> cam (CameraMessage.Look (delta,model.isZoomed))
         | KeyDown Keys.W -> model |> cam (CameraMessage.StartMove (V3d(0.0, model.moveSpeed, 0.0)))
         | KeyUp Keys.W -> model |> cam (CameraMessage.StopMove (V3d(0.0, model.moveSpeed, 0.0)))
@@ -206,30 +199,38 @@ module Update =
         | KeyUp Keys.A -> model |> cam (CameraMessage.StopMove (V3d(-model.moveSpeed, 0.0, 0.0)))
         | KeyDown Keys.D -> model |> cam (CameraMessage.StartMove (V3d(model.moveSpeed, 0.0, 0.0)))
         | KeyUp Keys.D -> model |> cam (CameraMessage.StopMove (V3d(model.moveSpeed, 0.0, 0.0)))
-        | KeyUp Keys.P -> 
-            printfn "blub"
-            env.Emit [CreateGotHitIndicatorInstance(model.camera.camera.Location+rand.UniformV3dDirection(),rand.UniformDouble()*100.0)]
-            model
-        | KeyDown Keys.Space -> model |> cam (CameraMessage.StartMove (V3d(0.0, 0.0, 10.0)))
+        | KeyDown Keys.Space -> 
+            if (Model.amDead model) then 
+                env.Emit [Respawn]
+                model
+            else model |> cam (CameraMessage.StartMove (V3d(0.0, 0.0, 10.0)))
         | KeyUp Keys.Space -> model
         | KeyDown Keys.Tab -> {model with tabDown=true}
         | KeyUp Keys.Tab -> {model with tabDown=false}
-        | KeyDown Keys.D1 -> { model with activeWeapon = LaserGun}
-        | KeyDown Keys.D2 -> { model with activeWeapon = Shotgun}
-        | KeyDown Keys.D3 -> { model with activeWeapon = Sniper}
-        | KeyDown Keys.D4 -> { model with activeWeapon = RainbowGun}
-        | KeyDown Keys.D5 -> { model with activeWeapon = RocketLauncher}
+        | KeyDown Keys.D1 -> {model with activeWeapon = LaserGun}
+        | KeyDown Keys.D2 | KeyDown Keys.F -> {model with activeWeapon = Shotgun}
+        | KeyDown Keys.D3 | KeyDown Keys.Q -> {model with activeWeapon = Sniper}
+        | KeyDown Keys.D4 | KeyDown Keys.C -> {model with activeWeapon = RainbowGun}
+        | KeyDown Keys.D5 | KeyDown Keys.G -> {model with activeWeapon = RocketLauncher}
+        | KeyDown Keys.P -> 
+            printfn "position: %A" model.camera.camera.Location
+            model
         | KeyDown Keys.R ->
-            let weapon = model.weapons.Item model.activeWeapon
-            let updatedWeapons = 
-                model.weapons 
-                |> HashMap.add model.activeWeapon {weapon with ammo = (weapon.startReload weapon.ammo model.time)}
-            {model with weapons = updatedWeapons}
+            if (Model.controlsDisabled model) then model
+            else
+                let weapon = model.weapons.Item model.activeWeapon
+                let updatedWeapons = 
+                    model.weapons 
+                    |> HashMap.add model.activeWeapon {weapon with ammo = (weapon.startReload weapon.ammo model.time)}
+                {model with weapons = updatedWeapons}
         | KeyDown Keys.Back -> 
-            let respawnLocation = model.world.Bounds.Min.XYO + model.world.Bounds.RangeZ.Center * V3d.OOI + V3d.IIO + V3d(random.Next(45,100),random.Next(45,100),random.Next(-40,-35))
-            let newCameraView = model.camera.camera.WithLocation(respawnLocation)
-            let modelCamera = { model.camera with camera = newCameraView; velocity = V3d.Zero  }
-            { model with camera = modelCamera }
+            if (Model.amDead model) then 
+                env.Emit [Respawn]
+                model
+            elif model.lastPositionReset + 5.0 < model.time then 
+                env.Emit [TeleportToSpawnLocation]
+                {model with lastPositionReset = model.time}
+            else model
         | Resize s -> 
             { model with 
                 size = s
@@ -238,7 +239,7 @@ module Update =
         | UpdateStats s -> 
             let (myKills,myDeaths,myColor) = s |> Map.tryFind model.playerName |> Option.defaultValue (0,0,"yellow")
             let newOthers = 
-                (model.otherPlayers, s) ||> Map.fold (fun others name (kills,deaths,color) -> others |> HashMap.update name (function Some o -> {o with frags=kills;deaths=deaths;color=color}|None -> {pos=V3d(234234234.0,346346346.0,35757457.0);fw=V3d.IOO;up=V3d.OIO;ri=V3d.OOI;reloading=false;weapon=WeaponType.LaserGun;frags=kills;deaths=deaths;color=color}))
+                (model.otherPlayers, s) ||> Map.fold (fun others name (kills,deaths,color) -> others |> HashMap.update name (function Some o -> {o with frags=kills;deaths=deaths;color=color}|None -> {pos=V3d(234234234.0,346346346.0,35757457.0);fw=V3d.IOO;reloading=false;weapon=WeaponType.LaserGun;frags=kills;deaths=deaths;color=color}))
                 |> HashMap.remove model.playerName
             {model with frags=myKills; deaths=myDeaths; color=myColor; otherPlayers=newOthers}
         | UpdateTime(t, dt) ->
@@ -249,23 +250,30 @@ module Update =
             let model = { model with shotTrails = newTrailSet}
             if model.triggerHeld && model.activeWeapon=RainbowGun then env.Emit [Shoot]
             let updatedWeapons = 
-                model.weapons
-                |> HashMap.map (fun weaponType weapon -> 
-                    match weapon.ammo with
-                    | Endless -> weapon
-                    | Limited ammoInfo ->
-                        match ammoInfo.startReloadTime with 
-                        | None -> weapon
-                        | Some startTime -> 
-                            if model.activeWeapon = weaponType then
-                                let isFinished = startTime + ammoInfo.reloadTime <= t
-                                if isFinished then
-                                    {weapon with ammo = (weapon.reload weapon.ammo)}
+                if Model.controlsDisabled model then model.weapons
+                else
+                    model.weapons
+                    |> HashMap.map (fun weaponType weapon -> 
+                        match weapon.ammo with
+                        | Endless -> weapon
+                        | Limited ammoInfo ->
+                            match ammoInfo.startReloadTime with 
+                            | Not -> weapon
+                            | Reloading startTime -> 
+                                if model.activeWeapon = weaponType then
+                                    let isFinished = startTime + ammoInfo.reloadTime <= t
+                                    if isFinished then
+                                        {weapon with ammo = (weapon.reload weapon.ammo)}
+                                    else
+                                        weapon
                                 else
-                                    weapon
-                            else
-                                {weapon with ammo = Limited { ammoInfo with startReloadTime = None } } 
-                )
+                                    let remaining = t - startTime
+                                    {weapon with ammo = Limited {ammoInfo with startReloadTime = PausedReload remaining}} 
+                            | PausedReload rem -> 
+                                if model.activeWeapon = weaponType then 
+                                    {weapon with ammo = Limited {ammoInfo with startReloadTime = Reloading (model.time - rem)}} 
+                                else weapon
+                    )
             let model = { model with weapons = updatedWeapons}
 
             let model = 
@@ -294,16 +302,12 @@ module Update =
                             endTime >= t
                         )
                 }
-
-
             env.Emit [UpdateProjectiles dt]
             client.send (
                 let reolading = model.weapons |> HashMap.tryFind model.activeWeapon |> Option.map Weapon.isReloading |> Option.defaultValue false
                 NetworkCommand.UpdatePosition(
-                    model.camera.camera.Location,
+                    (if (Model.amDead model) then V3d(234234234.0,346346346.0,35757457.0) else model.camera.camera.Location),
                     model.camera.camera.Forward,
-                    model.camera.camera.Up,
-                    model.camera.camera.Right,
                     model.activeWeapon |> WeaponType.pickle,
                     reolading
                 )
@@ -320,11 +324,30 @@ module Update =
                     time = t
                     lastDt = dt
                     camera = 
-                        { cam with 
-                            velocity = cam.velocity - V3d(0.0, 0.0, 20.81) * dt
-                            move = cam.move.XYO
-                        }
-                }
+                        if (Model.amDead model) then cam
+                        else 
+                            { cam with 
+                                velocity = cam.velocity - V3d(0.0, 0.0, 20.81) * dt
+                                move = cam.move.XYO
+                            }
+                } 
+        | TeleportToSpawnLocation -> 
+            let loc = model.world.RespawnLocation()
+            let newCameraView = model.camera.camera.WithLocation(loc)
+            let modelCamera = {model.camera with camera = newCameraView; velocity = V3d.Zero}
+            {model with camera = modelCamera}
+        | ResetPlayerState -> 
+            {model with
+                weapons = model.weapons |> HashMap.map (fun _ w -> {w with ammo = AmmunitionType.reload w.ammo})
+                camera = {model.camera with velocity=V3d.Zero; blastVelocity=V3d.Zero}
+            }
+        | Respawn -> 
+            match model.deathTime with 
+            | Some t when t+PlayerConstant.respawnDelay < model.time ->
+                env.Emit [TeleportToSpawnLocation; ResetPlayerState]
+                {model with currentHp=100; deathTime=None}
+            | _ -> 
+                model
         | UpdateAnimationState s -> {model with gunAnimationState=s}
         | UpdateProjectiles dt -> 
             let newProjs = 
@@ -405,9 +428,11 @@ module Update =
             let nm = 
                 match button with
                 | MouseButtons.Left -> 
-                    let messages = [Shoot]
-                    env.Emit messages
-                    {model with triggerHeld=true}
+                    if (Model.controlsDisabled model) then model
+                    else
+                        let messages = [Shoot]
+                        env.Emit messages
+                        {model with triggerHeld=true}
                 | MouseButtons.Right -> 
                     let weapon = model.weapons.Item model.activeWeapon
                     match weapon.name with
@@ -430,11 +455,13 @@ module Update =
                 match weapon.ammo with
                 | Endless -> weapon
                 | Limited ammoInfo -> 
-                    match ammoInfo.availableShots <= 0 with
+                    match ammoInfo.availableShots <= 0 && (not (Model.controlsDisabled model)) with
                     | false -> weapon
                     | true -> {weapon with ammo =  weapon.startReload weapon.ammo model.time}
              
-            let canShoot = weapon.canShoot weapon.ammo weapon.lastShotTime weapon.waitTimeBetweenShots model.time
+            let canShoot = 
+                weapon.canShoot weapon.ammo weapon.lastShotTime weapon.waitTimeBetweenShots model.time
+                && (not (Model.controlsDisabled model))
             match canShoot with
             | false -> {model with weapons = model.weapons |> HashMap.add model.activeWeapon weapon}
             | true -> 
@@ -526,13 +553,7 @@ module Update =
                     hitAnimations = HashSet.union model.hitAnimations newHits
                 }
         | KillfeedMessage(k,d,w) -> 
-            let s =
-                match w with 
-                | LaserGun -> "Laser Gun"
-                | Shotgun -> "Shotgun"
-                | RocketLauncher -> "Rocket Launcher"
-                | RainbowGun -> "Rainbow Gun"
-                | Sniper -> "Sniper Rifle"
+            let s = WeaponType.toString w
             let s = sprintf "%s killed %s with %s" k d s
             let nkf = (model.time,s)::(model.killfeed |> List.truncate killfeedLength)
             {model with killfeed=nkf}

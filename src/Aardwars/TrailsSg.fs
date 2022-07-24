@@ -142,12 +142,7 @@ module GotHitIndicatorInstance =
             |> Sg.blendMode' BlendMode.Blend
 
         let borderSg =
-            let onoff = 
-                let m = insts |> ASet.map (fun i -> i.StartTime) |> ASet.tryMax |> AVal.map (Option.defaultValue 0.0)
-                (m,t) ||> AVal.map2 (fun m t -> t-m < 0.075)
-                    
-            let v = 0.98
-            let pos = 
+            let poss v = 
                 [|
                     V3d( v,-v,0.0)
                     V3d( v, v,0.0)
@@ -155,16 +150,34 @@ module GotHitIndicatorInstance =
                     V3d(-v,-v,0.0)
                     V3d( v,-v,0.0)
                 |]
-            let col = Array.replicate pos.Length C4b.Crimson
-            Sg.draw IndexedGeometryMode.LineStrip
-            |> Sg.vertexAttribute' DefaultSemantic.Positions pos
-            |> Sg.vertexAttribute' DefaultSemantic.Colors col
+            let border1 = 
+                let onoff = 
+                    let m = insts |> ASet.map (fun i -> i.StartTime) |> ASet.tryMax |> AVal.map (Option.defaultValue 0.0)
+                    (m,t) ||> AVal.map2 (fun m t -> let rem = t-m in rem < 0.037)
+                    
+                let pos = poss 0.995
+                let col = Array.replicate pos.Length C4b.Crimson
+                Sg.draw IndexedGeometryMode.LineStrip
+                |> Sg.vertexAttribute' DefaultSemantic.Positions pos
+                |> Sg.vertexAttribute' DefaultSemantic.Colors col
+                |> Sg.onOff onoff
+            let border2 = 
+                let onoff = 
+                    let m = insts |> ASet.map (fun i -> i.StartTime) |> ASet.tryMax |> AVal.map (Option.defaultValue 0.0)
+                    (m,t) ||> AVal.map2 (fun m t -> let rem = t-m in rem < 0.075 && rem >= 0.037)
+                    
+                let pos = poss 0.97
+                let col = Array.replicate pos.Length C4b.Crimson
+                Sg.draw IndexedGeometryMode.LineStrip
+                |> Sg.vertexAttribute' DefaultSemantic.Positions pos
+                |> Sg.vertexAttribute' DefaultSemantic.Colors col
+                |> Sg.onOff onoff
+            Sg.ofList [border1;border2] 
             |> Sg.shader {
                 do! DefaultSurfaces.vertexColor
                 do! DefaultSurfaces.thickLine
             }
-            |> Sg.uniform' "LineWidth" 6.0
-            |> Sg.onOff onoff
+            |> Sg.uniform' "LineWidth" 15.0
 
 
         Sg.ofList [triSg;borderSg]
