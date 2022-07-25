@@ -81,15 +81,15 @@ module Projectile =
             let Smd = 
                 if bb.Intersects smallSphere then
                     let dir = (pos - e.Position).Normalized
-                    let vel = dir * 0.15
-                    let dmg = if isMe then e.BigDamage * 0.35 else e.SmallDamage
+                    let vel = dir * 0.3
+                    let dmg = if isMe then 0.0 else e.SmallDamage
                     Some (vel, dmg)
                 else None
             let Bmd =
                 if bb.Intersects bigSphere then
                     let dir = (pos - e.Position).Normalized
-                    let vel = dir * 0.15
-                    let dmg = if isMe then e.BigDamage * 0.35 else e.BigDamage
+                    let vel = dir * 0.3
+                    let dmg = if isMe then e.BigDamage * 0.33 else e.BigDamage
                     Some (vel, dmg)
                 else None
             match Smd, Bmd with 

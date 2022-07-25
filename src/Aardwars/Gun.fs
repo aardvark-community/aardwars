@@ -238,8 +238,8 @@ module Weapon =
         hitTargets,hitPlayers,floorHits
 
     let laserGun =
-        let damage = Range1d(5,20)
-        let spread = 0.01975
+        let damage = Range1d(10,15)
+        let spread = 0.01075
         let createHitrays (cv : CameraView) : list<Ray3d> = 
             let u = (rand.UniformDouble() * 2.0 - 1.0) * spread
             let v = (rand.UniformDouble() * 2.0 - 1.0) * spread
@@ -308,9 +308,9 @@ module Weapon =
 
     let shotGun : Weapon =
         let damage = Range1d(8.75, 8.75)
-        let spread = 0.145
+        let spread = 0.125
         let createHitrays (cv : CameraView) : list<Ray3d> = 
-            List.init 16 (fun _ ->
+            List.init 32 (fun _ ->
                 let u = (rand.UniformDouble() * 2.0 - 1.0) * spread
                 let v = (rand.UniformDouble() * 2.0 - 1.0) * spread
                 let p = cv.Location
@@ -449,7 +449,7 @@ module Weapon =
         }
 
     let rainbowgun : Weapon =
-            let damage = Range1d(14, 17)
+            let damage = Range1d(19, 22)
             let spread = 0.0335
             let createHitrays (cv : CameraView) : list<Ray3d> = 
                 let u = (rand.UniformDouble() * 2.0 - 1.0) * spread
@@ -522,7 +522,7 @@ module Weapon =
                 reload              = AmmunitionType.reload
                 startReload         = AmmunitionType.startReload
                 lastShotTime        = None
-                waitTimeBetweenShots = 0.1
+                waitTimeBetweenShots = 0.15
 
             }
 
@@ -532,9 +532,9 @@ module Weapon =
             let pos = cv.Location + 0.5 * cv.Forward
             let vel = cv.Forward * 30.5
             let smallRadius = 0.95
-            let smallDmg = 19.5
-            let bigRadius = 2.5
-            let bigDmg = 35.0
+            let smallDmg = 25.0
+            let bigRadius = 2.75
+            let bigDmg = 40.0
             [
                 {
                     pos             = pos

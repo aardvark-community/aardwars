@@ -129,7 +129,8 @@ module Update =
         let timer = 
             env.StartTimer(16, fun () ->
                 let now = sw.Elapsed.TotalSeconds
-                env.Emit [UpdateTime(now, now - last)]
+                let realDt = clamp 0.0 0.048 (now - last) //longframe->camera simulation extrem schnell->lod ladet immer mehr->frame wird immer longer
+                env.Emit [UpdateTime(now, realDt)]
                 last <- now
             )
 

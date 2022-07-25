@@ -21,7 +21,7 @@ module MainGame =
 
         let fld = typeof<OpenGlApplication>.GetFields(BindingFlags.NonPublic ||| BindingFlags.Instance) |> Array.find (fun f -> f.Name.Contains "windowConfig")
         let cfg = fld.GetValue(app) :?> Aardvark.Glfw.WindowConfig
-        fld.SetValue(app, { cfg with vsync = false })
+        fld.SetValue(app, { cfg with vsync = true })
 
         let win = app.CreateGameWindow(4)
         let client = Elm.NetworkGroup.client server port
