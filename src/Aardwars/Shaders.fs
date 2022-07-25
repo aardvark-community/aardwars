@@ -136,3 +136,136 @@ module Shader =
                 return v.c
         }
         
+    type UniformScope with 
+        member x.GunTex : float32 = uniform?GunTex
+        member x.PlayerTex : float32 = uniform?PlayerTex
+    let lgSammy = 
+        sampler2d {
+            texture uniform?laserguntex
+            addressU WrapMode.Wrap
+            addressV WrapMode.Wrap
+            filter Filter.MinLinearMagPointMipLinear
+        }
+    let sgSammy = 
+        sampler2d {
+            texture uniform?shotguntex
+            addressU WrapMode.Wrap
+            addressV WrapMode.Wrap
+            filter Filter.MinLinearMagPointMipLinear
+        }
+    let snSammy = 
+        sampler2d {
+            texture uniform?snipertex
+            addressU WrapMode.Wrap
+            addressV WrapMode.Wrap
+            filter Filter.MinLinearMagPointMipLinear
+        }
+    let rgSammy = 
+        sampler2d {
+            texture uniform?rainbowguntex
+            addressU WrapMode.Wrap
+            addressV WrapMode.Wrap
+            filter Filter.MinLinearMagPointMipLinear
+        }
+    let rlSammy = 
+        sampler2d {
+            texture uniform?rocketlaunchertex
+            addressU WrapMode.Wrap
+            addressV WrapMode.Wrap
+            filter Filter.MinLinearMagPointMipLinear
+        }
+    let guntexy (v : Effects.Vertex) =
+        fragment {
+            let t = uniform.GunTex
+            let col = 
+                match t with 
+                | 0.0f -> lgSammy.Sample(v.tc)
+                | 1.0f -> sgSammy.Sample(v.tc)
+                | 2.0f -> snSammy.Sample(v.tc)
+                | 3.0f -> rgSammy.Sample(v.tc)
+                | 4.0f -> rlSammy.Sample(v.tc)
+                | _ -> V4d.IOOO
+            return col
+        }
+
+    let blackSammy = 
+        sampler2d {
+            texture uniform?blackPlayerTex
+            addressU WrapMode.Wrap
+            addressV WrapMode.Wrap
+            filter Filter.MinLinearMagPointMipLinear
+        }
+    let blueSammy = 
+        sampler2d {
+            texture uniform?bluePlayerTex
+            addressU WrapMode.Wrap
+            addressV WrapMode.Wrap
+            filter Filter.MinLinearMagPointMipLinear
+        }
+    let greenSammy = 
+        sampler2d {
+            texture uniform?greenPlayerTex
+            addressU WrapMode.Wrap
+            addressV WrapMode.Wrap
+            filter Filter.MinLinearMagPointMipLinear
+        }          
+    let orangeSammy = 
+        sampler2d {
+            texture uniform?orangePlayerTex
+            addressU WrapMode.Wrap
+            addressV WrapMode.Wrap
+            filter Filter.MinLinearMagPointMipLinear
+        }            
+    let pinkSammy = 
+        sampler2d {
+            texture uniform?pinkPlayerTex
+            addressU WrapMode.Wrap
+            addressV WrapMode.Wrap
+            filter Filter.MinLinearMagPointMipLinear
+        }            
+    let purpleSammy = 
+        sampler2d {
+            texture uniform?purplePlayerTex
+            addressU WrapMode.Wrap
+            addressV WrapMode.Wrap
+            filter Filter.MinLinearMagPointMipLinear
+        }            
+    let redSammy = 
+        sampler2d {
+            texture uniform?redPlayerTex
+            addressU WrapMode.Wrap
+            addressV WrapMode.Wrap
+            filter Filter.MinLinearMagPointMipLinear
+        }            
+    let whiteSammy = 
+        sampler2d {
+            texture uniform?whitePlayerTex
+            addressU WrapMode.Wrap
+            addressV WrapMode.Wrap
+            filter Filter.MinLinearMagPointMipLinear
+        }            
+    let yellowSammy = 
+        sampler2d {
+            texture uniform?yellowPlayerTex
+            addressU WrapMode.Wrap
+            addressV WrapMode.Wrap
+            filter Filter.MinLinearMagPointMipLinear
+        }
+    let playertexy (v : Effects.Vertex) =
+        fragment {
+            let t = uniform.PlayerTex
+            let col = 
+                match t with 
+                | 0.0f -> blackSammy.Sample(v.tc)
+                | 1.0f -> blueSammy.Sample(v.tc)
+                | 2.0f -> greenSammy.Sample(v.tc)
+                | 3.0f -> orangeSammy.Sample(v.tc)
+                | 4.0f -> pinkSammy.Sample(v.tc)
+                | 5.0f -> purpleSammy.Sample(v.tc)
+                | 6.0f -> redSammy.Sample(v.tc)
+                | 7.0f -> whiteSammy.Sample(v.tc)
+                | 8.0f -> yellowSammy.Sample(v.tc)
+                | _ -> V4d.IOOO
+            return col
+        }
+        

@@ -569,6 +569,16 @@ module Weapon =
             lastShotTime        = None
             waitTimeBetweenShots = 0.05
         }
+    let lgTex =
+        Import.loadTexture(@"assets\gun.png")
+    let sgTex =
+        Import.loadTexture(@"assets\Shotgun.png")
+    let snTex =
+        Import.loadTexture(@"assets\sniper.png")
+    let rgTex =
+        Import.loadTexture(@"assets\rainbowgun.png")
+    let rlTex =
+        Import.loadTexture(@"assets\rocketlauncher.png")
     let lg =
         lazy Import.importGun("gun") 
     let sg = 
@@ -608,9 +618,10 @@ module Weapon =
             )
 
         let modelSurface =
-            Sg.shader {
+            Sg.adapter
+            >> Sg.shader {
                 do! DefaultSurfaces.trafo
-                do! DefaultSurfaces.diffuseTexture
+                do! Shader.guntexy
                 do! 
                     (fun (v : Effects.Vertex) -> 
                         fragment {
@@ -623,22 +634,47 @@ module Weapon =
             }
             >> Sg.uniform "Dark" (isReloading |> AVal.map (fun r -> if r then 1.0f else 0.0f))
                 
-        //activeWeapon
-        //|> AVal.map (function 
-        //    | LaserGun ->       lg.Value |> modelSurface
-        //    | Shotgun ->        sg.Value |> modelSurface
-        //    | Sniper ->         sn.Value |> modelSurface
-        //    | RainbowGun ->     rg.Value |> modelSurface
-        //    | RocketLauncher -> rl.Value |> modelSurface
+        //let tex = 
+        //    activeWeapon |> AVal.map (function 
+        //    | LaserGun ->       lgTex
+        //    | Shotgun ->        sgTex
+        //    | Sniper ->         snTex
+        //    | RainbowGun ->     rgTex
+        //    | RocketLauncher -> rlTex
         //)
-        //|> Sg.dynamic
-        Sg.ofList [
-            lg.Value |> modelSurface |> Sg.onOff (activeWeapon |> AVal.map (fun aw -> aw=LaserGun      ))
-            sg.Value |> modelSurface |> Sg.onOff (activeWeapon |> AVal.map (fun aw -> aw=Shotgun       ))
-            sn.Value |> modelSurface |> Sg.onOff (activeWeapon |> AVal.map (fun aw -> aw=Sniper        ))
-            rg.Value |> modelSurface |> Sg.onOff (activeWeapon |> AVal.map (fun aw -> aw=RainbowGun    ))
-            rl.Value |> modelSurface |> Sg.onOff (activeWeapon |> AVal.map (fun aw -> aw=RocketLauncher))
-        ]
+
+        let selectedGunTex =
+            activeWeapon
+            |> AVal.map (function 
+                | LaserGun ->       0.0f
+                | Shotgun ->        1.0f
+                | Sniper ->         2.0f
+                | RainbowGun ->     3.0f
+                | RocketLauncher -> 4.0f
+            )
+
+        activeWeapon
+        |> AVal.map (function 
+            | LaserGun ->       lg.Value |> modelSurface 
+            | Shotgun ->        sg.Value |> modelSurface
+            | Sniper ->         sn.Value |> modelSurface
+            | RainbowGun ->     rg.Value |> modelSurface
+            | RocketLauncher -> rl.Value |> modelSurface
+        )
+        |> Sg.dynamic
+        |> Sg.uniform "GunTex" selectedGunTex
+        |> Sg.texture' "laserguntex" lgTex
+        |> Sg.texture' "shotguntex" sgTex
+        |> Sg.texture' "snipertex" snTex
+        |> Sg.texture' "rainbowguntex" rgTex
+        |> Sg.texture' "rocketlaunchertex" rlTex
+        //Sg.ofList [
+        //    lg.Value |> modelSurface |> Sg.onOff (activeWeapon |> AVal.map (fun aw -> aw=LaserGun      ))
+        //    sg.Value |> modelSurface |> Sg.onOff (activeWeapon |> AVal.map (fun aw -> aw=Shotgun       ))
+        //    sn.Value |> modelSurface |> Sg.onOff (activeWeapon |> AVal.map (fun aw -> aw=Sniper        ))
+        //    rg.Value |> modelSurface |> Sg.onOff (activeWeapon |> AVal.map (fun aw -> aw=RainbowGun    ))
+        //    rl.Value |> modelSurface |> Sg.onOff (activeWeapon |> AVal.map (fun aw -> aw=RocketLauncher))
+        //]
         |> Sg.trafo gunMotionTrafo
         |> Sg.trafo modelTrafo
 

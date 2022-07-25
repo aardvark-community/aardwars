@@ -62,8 +62,9 @@ module Game =
             deathTime=None
             lastPositionReset=0.0
             gameEndTime = None
-            gameStartTime = Elm.App.absTimeNow()
+            gameStartTime = 0.0
             lastGotHit=None
+            serverTime = 0.0
 
             tabDown=false
             ctrlDown = false
@@ -71,18 +72,32 @@ module Game =
         }
         Update.update client env model (Respawn true)
         
-    let playerModels = 
-        HashMap.ofList [
-            let s = "black" in yield s, Import.importPlayer "player" s
-            let s = "blue" in yield s, Import.importPlayer "player" s
-            let s = "green" in yield s, Import.importPlayer "player" s
-            let s = "orange" in yield s, Import.importPlayer "player" s
-            let s = "pink" in yield s, Import.importPlayer "player" s
-            let s = "purple" in yield s, Import.importPlayer "player" s
-            let s = "red" in yield s, Import.importPlayer "player" s
-            let s = "white" in yield s, Import.importPlayer "player" s
-            let s = "yellow" in yield s, Import.importPlayer "player" s
-        ]
+    let playerModel = Import.importPlayer
+    let playerTextures = 
+        let inline impy s =
+            s, Import.loadTexture (sprintf @"assets\player_%s.png" s)
+        [
+            "black"  
+            "blue"   
+            "green"  
+            "orange" 
+            "pink"   
+            "purple" 
+            "red"    
+            "white"  
+            "yellow" 
+        ] 
+        |> List.map impy
+        |> HashMap.ofList
+    let blackTexture        =  playerTextures.["black"]
+    let blueTexture         =  playerTextures.["blue"]
+    let greenTexture        =  playerTextures.["green"]
+    let orangeTexture       =  playerTextures.["orange"]
+    let pinkTexture         =  playerTextures.["pink"]
+    let purpleTexture       =  playerTextures.["purple"]
+    let redTexture          =  playerTextures.["red"]
+    let whiteTexture        =  playerTextures.["white"]
+    let yellowTexture       =  playerTextures.["yellow"]
     let view (client : NetworkClient) (env : Environment<Message>) (model : AdaptiveModel) =
         
         Update.events client env
@@ -244,8 +259,8 @@ module Game =
                 model.otherPlayers
         let timeleftSg =
             let text = 
-                (model.time,model.gameStartTime) ||> AVal.map2 (fun _ st -> 
-                    let rem = st+PlayerConstant.roundTime - (Elm.App.absTimeNow())
+                (model.time,model.gameStartTime,model.serverTime) |||> AVal.map3 (fun _ st serverTime -> 
+                    let rem = st+PlayerConstant.roundTime - serverTime
                     let min = sprintf "%d" (rem/60.0 |> int)
                     let sec = 
                         let v = rem%60.0 |> int
@@ -286,7 +301,7 @@ module Game =
                 )
             let models = 
                 model.otherPlayers
-                |> AMap.map (fun name info -> playerModels.[info.color])
+                |> AMap.map (fun name info -> playerModel, info.color)
             let ii = AVal.constant Trafo3d.Identity
             //let gunTrafos = 
             //    model.otherPlayers |> AMap.map (fun _ i -> 
@@ -310,24 +325,48 @@ module Game =
             //    |> Sg.set
 
             let players = 
-                models |> AMap.toASet |> ASet.map (fun (name,model) -> 
+                models |> AMap.toASet |> ASet.map (fun (name,(model,color)) -> 
+                    let ci = 
+                        match color with 
+                        | "black" ->        0.0f
+                        | "blue" ->         1.0f
+                        | "green" ->        2.0f
+                        | "orange" ->       3.0f
+                        | "pink" ->         4.0f
+                        | "purple" ->       5.0f
+                        | "red" ->          6.0f
+                        | "white" ->        7.0f
+                        | "yellow" ->       8.0f
+                        | _ -> 6969.0f
                     let isWhite = 
                         (whiteness |> AMap.tryFind name |> AVal.bind (fun o -> o |> Option.defaultValue (AVal.constant false)))
                         |> AVal.map (fun b -> 
                             if b then 1.0f else 0.0f
                         )
                     model 
+                    |> Sg.adapter
                     |> Sg.trafo (trafos |> AMap.find name)
                     |> Sg.uniform "VollgasWhite" isWhite
+                    |> Sg.uniform' "PlayerTex" ci
                 )
                 |> Sg.set
                 |> Sg.shader {
                     do! DefaultSurfaces.trafo
-                    do! DefaultSurfaces.diffuseTexture
+                    do! Shader.playertexy
                     do! DefaultSurfaces.simpleLighting
                     do! Shader.vollgasWhite
                 }
             Sg.ofList[players]
+            |> Sg.texture' "blackPlayerTex" blackTexture 
+            |> Sg.texture' "bluePlayerTex" blueTexture  
+            |> Sg.texture' "greenPlayerTex" greenTexture 
+            |> Sg.texture' "orangePlayerTex" orangeTexture
+            |> Sg.texture' "pinkPlayerTex" pinkTexture  
+            |> Sg.texture' "purplePlayerTex" purpleTexture
+            |> Sg.texture' "redPlayerTex" redTexture   
+            |> Sg.texture' "whitePlayerTex" whiteTexture 
+            |> Sg.texture' "yellowPlayerTex" yellowTexture
+
 
         let hitBoxes =
             let trafos = 

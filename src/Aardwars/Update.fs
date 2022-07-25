@@ -45,6 +45,7 @@ type Message =
     | ResetWorldState
     | Disconnected of string
     | SyncRestartTime of float
+    | SyncServerTime of float
     
 
 module Update =
@@ -67,8 +68,8 @@ module Update =
                 env.Emit [HitBy(player, dmg, sd, WeaponType.unpickle w)]
             | NetworkMessage.HitWithSlap(player, dmg, vel, sd,w) ->
                 env.Emit [HitByWithSlap(player, dmg, vel, sd, WeaponType.unpickle w)]
-            | NetworkMessage.Stats(s,t) ->
-                env.Emit [UpdateStats s; SyncRestartTime t]
+            | NetworkMessage.Stats(s,t,st) ->
+                env.Emit [UpdateStats s; SyncRestartTime t; SyncServerTime st]
             | NetworkMessage.SpawnShotTrails trails -> 
                 env.Emit [SpawnShotTrails (trails |> List.map (fun (l,s,d,c) -> l,d,c))]
             | NetworkMessage.Died (k,d,w) -> 
@@ -260,6 +261,8 @@ module Update =
             }
         | SyncRestartTime t -> 
             {model with gameStartTime = t}
+        | SyncServerTime st -> 
+            {model with serverTime = st}
         | UpdateStats s -> 
             let (myKills,myDeaths,myColor) = s |> Map.tryFind model.playerName |> Option.defaultValue (0,0,"yellow")
             let newOthers = 
@@ -314,7 +317,7 @@ module Update =
             let model = 
                 match model.gameEndTime with 
                 | None -> 
-                    let myt = (Elm.App.absTimeNow())
+                    let myt = model.serverTime
                     if model.gameStartTime+PlayerConstant.roundTime < myt then 
                         {model with gameEndTime = Some t}
                     else model
@@ -637,7 +640,6 @@ module Update =
         | CreateHitEnemyIndicatorInstance n -> 
             {model with hitEnemyIndicatorInstances = model.hitEnemyIndicatorInstances |> HashMap.add n model.time}
         | HitEnemyWithSlap(n,d,v,sp,w) -> 
-            //client.send (NetworkCommand.HitWithSlap(n,d,v,sp,WeaponType.pickle w))
             env.Emit [CreateHitEnemyIndicatorInstance n]
             model
         | HitEnemy(n,d,v,w) -> 

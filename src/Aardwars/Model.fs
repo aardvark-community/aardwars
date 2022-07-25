@@ -163,6 +163,7 @@ type Model =
         deathTime : Option<float>
         gameEndTime : Option<float>
         gameStartTime : float
+        serverTime : float
         
         tabDown             : bool
         ctrlDown            : bool

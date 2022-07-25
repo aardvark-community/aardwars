@@ -69,22 +69,27 @@ module Import =
             let map = Map.ofList repl
             x.SubstituteMaterial (fun m -> Some { m with textures = Map.union  m.textures map })
 
-    let importObj (name : string) (texture : string) =
+    let loadTexture (texture : string) =
+        printfn "UPLOADED TEXTURE"
+        //{ Loader.coordIndex = 0; Loader.texture = FileTexture((sprintf @"assets\%s.png" texture), TextureParams.mipmapped) :> ITexture }
+        PixTexture2d(PixImageMipMap [|PixImage.Load texture|], true) :> ITexture
+
+    let importObj (name : string) =
+        printfn "IMPORTED"
         let flags = 
             Assimp.PostProcessSteps.Triangulate |||
             Assimp.PostProcessSteps.FindInvalidData
 
-        let loaded = Loader.Assimp.Load((sprintf @"assets\%s.obj" name), flags)
-
-        let tex = { Loader.coordIndex = 0; Loader.texture = FileTexture((sprintf @"assets\%s.png" texture), TextureParams.mipmapped) :> ITexture }
         let loaded = 
-            loaded.AddTextures [
-                DefaultSemantic.DiffuseColorTexture, tex
-            ]
+            Loader.Assimp.Load((sprintf @"assets\%s.obj" name), flags)
 
-        Sg.ofList [
-            Sg.adapter loaded
-        ]
+        //let tex = { Loader.coordIndex = 0; Loader.texture = FileTexture((sprintf @"assets\%s.png" texture), TextureParams.mipmapped) :> ITexture }
+        //let loaded = 
+        //    loaded.AddTextures [
+        //        DefaultSemantic.DiffuseColorTexture, tex
+        //    ]
+
+        loaded
         
-    let importGun (name : string) = importObj name name
-    let importPlayer (name : string) (color : string) = importObj name (name + "_" + color)
+    let importGun (name : string) = importObj name
+    let importPlayer = importObj "player"

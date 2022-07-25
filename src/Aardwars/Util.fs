@@ -54,10 +54,7 @@ type App<'model, 'mmodel, 'message> =
         unpersist : Unpersist<'model, 'mmodel>
     }
 module App =    
-    let rref = DateTime(2022,07,24,0,0,0,DateTimeKind.Utc)
-    let absTimeNow() =
-        let t = DateTime.UtcNow - rref
-        t.TotalSeconds
+    
 
     open System.Net
     open System.Net.Sockets
@@ -220,7 +217,7 @@ type NetworkCommand =
 
 [<RequireQualifiedAccess>]
 type NetworkMessage =
-    | Stats of Map<string, int*int*string>*time:float
+    | Stats of Map<string, int*int*string>*startTime:float*serverTime:float
     | UpdatePosition of playerName : string * pos:V3d*fw:V3d*w:int*rld:bool
     | SpawnShotTrails of list<Line3d * float * float * C4b>
     | Connected of playerName : string
@@ -240,8 +237,8 @@ module NetworkMessage =
 
     let pickle (msg : NetworkMessage) =
         match msg with
-        | NetworkMessage.Stats(s,t) ->
-            (s |> Seq.map (fun (KeyValue(n, (k,d,c))) -> sprintf "%s:%d:%d:%s" n k d c) |> String.concat "," |> sprintf "#stats %s")+(sprintf ",%f" t)
+        | NetworkMessage.Stats(s,t,st) ->
+            (s |> Seq.map (fun (KeyValue(n, (k,d,c))) -> sprintf "%s:%d:%d:%s" n k d c) |> String.concat "," |> sprintf "#stats %s")+(sprintf ",%f,%f" t st)
         | NetworkMessage.SpawnShotTrails trails -> 
             sprintf 
                 "#spawntrails %s" 
@@ -298,12 +295,13 @@ module NetworkMessage =
                     NetworkMessage.HitWithSlap (data.[0], float data.[1], V3d(float data.[2], float data.[3], float data.[4]), V3d(float data.[5], float data.[6], float data.[7]), int data.[8]) |> Some
                 | "stats" ->
                     let stats = 
-                        data |> Array.truncate (data.Length-1) |> Array.map (fun s -> 
+                        data |> Array.truncate (data.Length-2) |> Array.map (fun s -> 
                             let arr = s.Split(':')
                             (arr.[0], (int arr.[1], int arr.[2], arr.[3]))
                         ) |> Map.ofArray
-                    let t = float data.[data.Length-1]
-                    NetworkMessage.Stats (stats,t) |> Some
+                    let t = float data.[data.Length-2]
+                    let st = float data.[data.Length-1]
+                    NetworkMessage.Stats (stats,t,st) |> Some
                 | "spawntrails" -> 
                     let trails = 
                         data |> Array.map (fun d -> 
@@ -452,15 +450,21 @@ module NetworkGroup =
         let listener = new TcpListener(IPAddress.Any, port)
         let clients = ConcurrentDictionary<string, ClientInfo>()
         let frags = ConcurrentDictionary<string, list<DeathInfo>>()
-        let mutable currentRoundStartTime = App.absTimeNow()
+        let mutable currentRoundStartTime = 0.0
+        let mutable currentServerTime = 0.0
         
         let run =   
             async {
                 do! Async.SwitchToThreadPool()
                 let pingTask = 
                     async {
+                        let rref = DateTime(2022,07,24,0,0,0,DateTimeKind.Utc)
+                        let absTimeNow() =
+                            let t = DateTime.UtcNow - rref
+                            t.TotalSeconds
                         while true do 
                             do! Async.Sleep 100
+                            currentServerTime <- absTimeNow()
                             let mycs = (clients |> Seq.map (fun kvp -> kvp.Key,kvp.Value) |> Map.ofSeq)
                             for KeyValue(name, info) in clients do
                                 let c = info.c
@@ -480,7 +484,7 @@ module NetworkGroup =
                                     ) |> Map.ofSeq
                                 lock c (fun _ -> 
                                     try 
-                                        c.WriteLine (NetworkMessage.pickle (NetworkMessage.Stats(s,currentRoundStartTime)))
+                                        c.WriteLine (NetworkMessage.pickle (NetworkMessage.Stats(s,currentRoundStartTime,currentServerTime)))
                                     with e -> 
                                         ()
                                 )
@@ -520,10 +524,10 @@ module NetworkGroup =
                                             0
                                     clients.TryAdd(clientId, {c=w;i=i}) |> ignore
 
-                                    let inline broadcast msg =
+                                    let inline broadcast all msg =
                                         for KeyValue(name, info) in clients do 
                                             let c = info.c
-                                            if name <> clientId then
+                                            if all || name <> clientId then
                                                 send c msg
                                         
 
@@ -534,22 +538,20 @@ module NetworkGroup =
                                             | Some cmd ->
                                                 match cmd with
                                                 | NetworkCommand.Restart -> 
-                                                    currentRoundStartTime <- App.absTimeNow()
+                                                    currentRoundStartTime <- currentServerTime
                                                     let ps = frags.Keys
                                                     frags.Clear()
                                                     ps |> Seq.iter (fun n -> frags.AddOrUpdate(n,[],(fun _ _ -> [])) |> ignore)
-                                                    send w (NetworkMessage.SyncRestartTime currentRoundStartTime)
-                                                    broadcast (NetworkMessage.Restart currentRoundStartTime)
+                                                    broadcast true (NetworkMessage.Restart currentRoundStartTime)
                                                 | NetworkCommand.UpdatePosition(p,fw,w,rld) ->
-                                                    broadcast (NetworkMessage.UpdatePosition(clientId,p,fw,w,rld))
+                                                    broadcast false (NetworkMessage.UpdatePosition(clientId,p,fw,w,rld))
                                                 | NetworkCommand.Died(cause,died,gun) ->
                                                     let v = {diedPlayer=died;killingPlayer=cause;gun=gun}
                                                     frags.AddOrUpdate(cause, (fun _ -> [v]), (fun _ o -> v::o)) |> ignore
-                                                    broadcast (NetworkMessage.Died(cause,died,gun))
+                                                    broadcast false (NetworkMessage.Died(cause,died,gun))
                                                 | NetworkCommand.Connect _ ->
-                                                    send w (NetworkMessage.SyncRestartTime currentRoundStartTime)
-                                                    broadcast (NetworkMessage.SyncRestartTime currentRoundStartTime)
-                                                    broadcast (NetworkMessage.Connected(clientId))
+                                                    broadcast true (NetworkMessage.SyncRestartTime currentRoundStartTime)
+                                                    broadcast false (NetworkMessage.Connected(clientId))
                                                 | NetworkCommand.Hit(other, dmg, sd,w) ->
                                                     match clients.TryGetValue other with
                                                     | (true, o) ->
@@ -577,13 +579,13 @@ module NetworkGroup =
                                                             let col = App.colors.[color%App.colors.Length]
                                                             c,(kills,deaths,col)
                                                         ) |> Map.ofSeq
-                                                    send w (NetworkMessage.Stats (s,currentRoundStartTime))
+                                                    send w (NetworkMessage.Stats (s,currentRoundStartTime,currentServerTime))
                                                 | NetworkCommand.SpawnShotTrails trails ->
-                                                    broadcast (NetworkMessage.SpawnShotTrails trails)
+                                                    broadcast false (NetworkMessage.SpawnShotTrails trails)
                                                 | NetworkCommand.SpawnProjectiles projs ->
-                                                    broadcast (NetworkMessage.SpawnProjectiles projs)
+                                                    broadcast false (NetworkMessage.SpawnProjectiles projs)
                                                 | NetworkCommand.Explode (a,s,d,f,g,h) ->
-                                                    broadcast (NetworkMessage.Explode (a,s,d,f,g,h))
+                                                    broadcast false (NetworkMessage.Explode (a,s,d,f,g,h))
 
                                             | None ->
                                                 ()
