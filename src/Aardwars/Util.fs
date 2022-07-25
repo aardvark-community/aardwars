@@ -171,7 +171,11 @@ module App =
                         let! img = takeScreenshot()
                         let buffer = img.ToPngData()
                     
-                        let dir = "screenshots"
+                        let dir = 
+                            Path.Combine(
+                                Environment.GetFolderPath(Environment.SpecialFolder.Desktop), 
+                                "aardwars_screenshots"
+                        )
                         if not (Directory.Exists(dir)) then
                             Directory.CreateDirectory(dir) |> ignore
 
@@ -183,7 +187,7 @@ module App =
                         | Valid cs -> Screenshot.upload cs [] buffer |> ignore
                         | _ -> ()
                     with e ->
-                        Log.error "%A" e
+                        Log.error "Taking screenshot failed with: %A" e.Message
                 
                 } |> Async.Start
             | _ ->
