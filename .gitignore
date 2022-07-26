@@ -48,3 +48,4 @@ src/CeresNative/*.o
 .idea/
 /.vs
 /published
+/src/Aardwars/Properties/launchSettings.json

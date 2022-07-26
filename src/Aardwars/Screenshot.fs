@@ -62,8 +62,14 @@ module Credentials =
 
         else
 
-            printfn "[Credentials.load] file not found (%s)" credentialFileName
-            Missing
+            "eyJ1cmwiOiJodHRwczovL3NjcmVlbnNob3RyLWFwaS5hYXJkd29yeC5uZXQiLCJrZXkiOiJjMjc3ODk4YTlmMWQ4ZTA0Y2QyYjYzMmU1ZGMyMDQwNmY5OGVkZjQ3N2E1NzUzNDdlODM1ZTY2YzI2OTczMmFlIn0="
+                |> System.Convert.FromBase64String
+                |> System.Text.Encoding.UTF8.GetString
+                |> JsonSerializer.Deserialize<CredentialsDto>
+                |> Valid
+
+            //printfn "[Credentials.load] file not found (%s)" credentialFileName
+            //Missing
 
 
 module Screenshot = 
