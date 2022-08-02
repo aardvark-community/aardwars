@@ -28,4 +28,17 @@ Gameplay video: https://youtu.be/x7_Yy6IQzog
 * Attila Szabo (additional gameplay programming, [github/aszabo314](https://github.com/aszabo314))
 * Andreas Walch (additional gameplay programming, [github/WalchAndreas](https://github.com/WalchAndreas)))
 
-[todo features, addtl. credits, license]
+## Implementation
+
+This project is a proof-of-concept implementation of a playable real-time video game using the [Aardvark Platform](https://aardvarkians.com/) scientific visualization toolset. It was initially created as part of an internship at [VRVis](https://www.vrvis.at/). Features include:
+
+* Elm-style ("model-view-update") application structure using [FSharp.Data.Adaptive](https://github.com/fsprojects/FSharp.Data.Adaptive)/[Adaptify](https://github.com/krauthaufen/Adaptify) and [aardvark.rendering's](https://github.com/aardvark-platform/aardvark.rendering) `ISg` graphics API. 
+* Heavy use of [aardvark.rendering's](https://github.com/aardvark-platform/aardvark.rendering) automatic instancing (`Sg.instanced`) and [FShade](https://www.fshade.org/) for high performance rendering
+* Implementation of the Level of Detail renderer in [aardvark.algodat](https://github.com/aardvark-platform/aardvark.algodat) to render Minecraft-style worlds
+* Parser for Minecraft world files
+* simple multiplayer using dotnet websockets
+
+## Additional Credits
+
+* community texture packs from https://www.curseforge.com/minecraft/texture-packs/quadral-pack and https://resourcepack.net/mythic-resource-pack/
+* Minecraft world file from https://www.minecraftmaps.com/pvp-maps/jakobs-kitpvp
