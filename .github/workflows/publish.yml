@@ -1,0 +1,40 @@
+name: Publish
+on:
+  push:
+    branches:
+      #- master
+      - buildscript
+    paths:
+      - RELEASE_NOTES.md
+      - .github/workflows/publish.yml
+jobs:
+  pack:
+    name: Package
+    runs-on: windows-latest
+    steps:  
+      - name: Checkout
+        uses: actions/checkout@v2
+      - name: Install Dotnet
+        uses: actions/setup-dotnet@v2
+        with:
+          dotnet-version: '6.0.203'
+      - name: Restore Tools
+        run: dotnet tool restore
+      - name: Restore
+        run: dotnet paket restore
+      - name: Publish
+        run: .\publish.cmd
+      - name: Create Archive
+        uses: vimtor/action-zip@v1
+        with:
+          files: published/
+          dest: aardwars.zip
+      - name: Upload
+        uses: actions/upload-artifact@v2
+        with:
+          name: aardwars
+          path: aardwars.zip
+      - name: Create Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: dotnet aardpack aardwars.zip --nobuild
