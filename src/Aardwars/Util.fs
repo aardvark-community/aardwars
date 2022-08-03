@@ -474,7 +474,7 @@ module NetworkGroup =
                                 let c = info.c
                                 let s = 
                                     clients.Keys |> Seq.map (fun c -> 
-                                        let kills = frags.GetValueOrDefault(c,[]) |> List.filter (fun i -> i.diedPlayer <> i.killingPlayer) |> List.length
+                                        let kills = frags.GetOrAdd(c,[]) |> List.filter (fun i -> i.diedPlayer <> i.killingPlayer) |> List.length
                                         let deaths = 
                                             frags |> Seq.sumBy (fun kvp -> 
                                                 kvp.Value |> List.filter (fun i -> i.diedPlayer=c) |> List.length
@@ -571,7 +571,7 @@ module NetworkGroup =
                                                 | NetworkCommand.Stats ->
                                                     let s =
                                                         clients.Keys |> Seq.map (fun c -> 
-                                                            let kills = frags.GetValueOrDefault(c,[]) |> List.filter (fun i -> i.diedPlayer <> i.killingPlayer) |> List.length
+                                                            let kills = frags.GetOrAdd(c,[]) |> List.filter (fun i -> i.diedPlayer <> i.killingPlayer) |> List.length
                                                             let deaths = 
                                                                 frags |> Seq.sumBy (fun kvp -> 
                                                                     kvp.Value |> List.filter (fun i -> i.diedPlayer=c) |> List.length

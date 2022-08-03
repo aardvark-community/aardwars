@@ -1,5 +1,6 @@
 ﻿namespace Aardwars
 
+open Elm
 open FSharp.Data.Adaptive
 open Aardvark.Base
 open Aardvark.Rendering
@@ -69,27 +70,66 @@ module Import =
             let map = Map.ofList repl
             x.SubstituteMaterial (fun m -> Some { m with textures = Map.union  m.textures map })
 
+    let names =
+        let assembly = typeof<NetworkClient>.Assembly
+        let prefix = sprintf "%s." (assembly.GetName().Name)
+        assembly.GetManifestResourceNames() |> Array.choose (fun n ->
+            if n.StartsWith prefix then
+                let name = n.Substring prefix.Length
+                Some(name, fun () -> assembly.GetManifestResourceStream(n))
+            else
+                None
+        )
+    open System.IO
     let loadTexture (texture : string) =
-        printfn "UPLOADED TEXTURE"
-        //{ Loader.coordIndex = 0; Loader.texture = FileTexture((sprintf @"assets\%s.png" texture), TextureParams.mipmapped) :> ITexture }
-        PixTexture2d(PixImageMipMap [|PixImage.Load texture|], true) :> ITexture
+        let texName =
+            Path.GetFileName(texture.Replace('/', Path.DirectorySeparatorChar).Replace('\\', Path.DirectorySeparatorChar))
+            
+        let op = 
+            names |> Array.tryPick (fun (n, op) ->
+                if n.EndsWith texName then Some op
+                else None
+            )
+            
+        match op with
+        | Some op ->
+            use s = op()
+            PixTexture2d(PixImageMipMap [|PixImage.Load s|], true) :> ITexture
+        | None ->
+            Log.warn "could not find texture: %A" texName
+            DefaultTextures.checkerboard.GetValue()
 
     let importObj (name : string) =
-        printfn "IMPORTED"
-        let flags = 
-            Assimp.PostProcessSteps.Triangulate |||
-            Assimp.PostProcessSteps.FindInvalidData
+        let name = Path.ChangeExtension(name, ".obj")
+        let op = 
+            names |> Array.tryPick (fun (n, op) ->
+                if n.EndsWith name then Some op
+                else None
+            )
+            
+        match op with
+        | Some op ->
+            let dst = Path.Combine(Environment.GetFolderPath Environment.SpecialFolder.LocalApplicationData, "aardwars")
+            if not (Directory.Exists dst) then Directory.CreateDirectory dst |> ignore
+            
+            let tmp = Path.Combine(dst, name)
+            do
+                use s = op()
+                use w = File.OpenWrite tmp
+                s.CopyTo w
+                
+                
+            printfn "IMPORTED"
+            let flags = 
+                Assimp.PostProcessSteps.Triangulate |||
+                Assimp.PostProcessSteps.FindInvalidData
 
-        let loaded = 
-            Loader.Assimp.Load((sprintf @"assets\%s.obj" name), flags)
+            let loaded = 
+                Loader.Assimp.Load(tmp, flags)
 
-        //let tex = { Loader.coordIndex = 0; Loader.texture = FileTexture((sprintf @"assets\%s.png" texture), TextureParams.mipmapped) :> ITexture }
-        //let loaded = 
-        //    loaded.AddTextures [
-        //        DefaultSemantic.DiffuseColorTexture, tex
-        //    ]
-
-        loaded
-        
+            loaded
+        | None ->
+            failwithf "could not load asset %A" name
+            
     let importGun (name : string) = importObj name
     let importPlayer = importObj "player"

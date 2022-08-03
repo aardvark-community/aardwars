@@ -44,7 +44,7 @@ module Main =
                 args.[0], int args.[1]
             else
                 "localhost", Elm.App.port
-
+        Aardvark.Rendering.GL.RuntimeConfig.UseNewRenderTask <- true
         MainGame.startGame server port
 
         0

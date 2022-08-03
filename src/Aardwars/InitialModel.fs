@@ -75,7 +75,7 @@ module Game =
     let playerModel = Import.importPlayer
     let playerTextures = 
         let inline impy s =
-            s, Import.loadTexture (sprintf @"assets\player_%s.png" s)
+            s, Import.loadTexture (sprintf @"assets/player_%s.png" s)
         [
             "black"  
             "blue"   

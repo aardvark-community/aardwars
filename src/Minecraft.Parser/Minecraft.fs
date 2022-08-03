@@ -74,7 +74,7 @@ module Minecraft =
         match Directory.Exists dir with
         | true -> Directory.EnumerateFiles(dir, "*.mca")
                   |> Seq.map (fun fn ->
-                      let ts = fn.Split('.')
+                      let ts = Path.GetFileName(fn).Split('.')
                       { FileName = fn; X = int(ts.[1]); Z = int(ts.[2]); }
                       )
                   |> Seq.toArray

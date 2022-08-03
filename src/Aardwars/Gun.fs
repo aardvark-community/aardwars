@@ -570,15 +570,15 @@ module Weapon =
             waitTimeBetweenShots = 0.05
         }
     let lgTex =
-        Import.loadTexture(@"assets\gun.png")
+        Import.loadTexture(@"assets/gun.png")
     let sgTex =
-        Import.loadTexture(@"assets\Shotgun.png")
+        Import.loadTexture(@"assets/Shotgun.png")
     let snTex =
-        Import.loadTexture(@"assets\sniper.png")
+        Import.loadTexture(@"assets/sniper.png")
     let rgTex =
-        Import.loadTexture(@"assets\rainbowgun.png")
+        Import.loadTexture(@"assets/rainbowgun.png")
     let rlTex =
-        Import.loadTexture(@"assets\rocketlauncher.png")
+        Import.loadTexture(@"assets/rocketlauncher.png")
     let lg =
         lazy Import.importGun("gun") 
     let sg = 

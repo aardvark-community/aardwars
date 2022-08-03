@@ -4,89 +4,34 @@
     <OutputType>Exe</OutputType>
     <TargetFramework>net6.0</TargetFramework>
     <OutputPath>..\..\bin\$(Configuration)\</OutputPath>
-	<PublishSingleFile Condition="'$(Configuration)' == 'Release'">true</PublishSingleFile>
-    <SelfContained>true</SelfContained>
-    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
   </PropertyGroup>
   <ItemGroup>
-	  <EmbeddedResource Include="assets\player_black.png">
-	    <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-	  </EmbeddedResource>
-	  <EmbeddedResource Include="assets\player_blue.png">
-	    <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-	  </EmbeddedResource>
-	  <EmbeddedResource Include="assets\player_green.png">
-	    <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-	  </EmbeddedResource>
-	  <EmbeddedResource Include="assets\player_orange.png">
-	    <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-	  </EmbeddedResource>
-	  <EmbeddedResource Include="assets\player_pink.png">
-	    <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-	  </EmbeddedResource>
-	  <EmbeddedResource Include="assets\player_purple.png">
-	    <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-	  </EmbeddedResource>
-	  <EmbeddedResource Include="assets\player_red.png">
-	    <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-	  </EmbeddedResource>
-	  <EmbeddedResource Include="assets\player_white.png">
-	    <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-	  </EmbeddedResource>
-	  <EmbeddedResource Include="assets\player_yellow.png">
-	    <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-	  </EmbeddedResource>
-	  <EmbeddedResource Include="assets\player.obj">
-	    <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-	  </EmbeddedResource>
-	  <EmbeddedResource Include="assets\rainbowgun.png">
-	    <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-	  </EmbeddedResource>
-	  <EmbeddedResource Include="assets\rainbowgun.mtl">
-	    <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-	  </EmbeddedResource>
-	  <EmbeddedResource Include="assets\rainbowgun.obj">
-	    <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-	  </EmbeddedResource>
-	  <EmbeddedResource Include="assets\sniper.png">
-	    <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-	  </EmbeddedResource>
-	  <EmbeddedResource Include="assets\sniper.mtl">
-	    <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-	  </EmbeddedResource>
-	  <EmbeddedResource Include="assets\player.png">
-	    <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-	  </EmbeddedResource>
-	  <EmbeddedResource Include="assets\rocketlauncher.obj">
-		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-	  </EmbeddedResource>
-	  <EmbeddedResource Include="assets\rocketlauncher.png">
-		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-	  </EmbeddedResource>
-	  <EmbeddedResource Include="assets\rocketlauncher.mtl">
-		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-	  </EmbeddedResource>
-	  <EmbeddedResource Include="assets\Shotgun.png">
-	    <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-	  </EmbeddedResource>
-	  <EmbeddedResource Include="assets\shotgun.mtl">
-	    <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-	  </EmbeddedResource>
-	  <EmbeddedResource Include="assets\shotgun.obj">
-		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-	  </EmbeddedResource>
-	  <EmbeddedResource Include="assets\sniper.obj">
-		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-	  </EmbeddedResource>
-	  <EmbeddedResource Include="assets\gun.png">
-		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-	  </EmbeddedResource>
-	  <EmbeddedResource Include="assets\gun.mtl">
-		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-	  </EmbeddedResource>
-	  <EmbeddedResource Include="assets\gun.obj">
-		  <CopyToOutputDirectory>Always</CopyToOutputDirectory>
-	  </EmbeddedResource>
+	  <EmbeddedResource Include="assets\player_black.png" />
+	  <EmbeddedResource Include="assets\player_blue.png" />
+	  <EmbeddedResource Include="assets\player_green.png" />
+	  <EmbeddedResource Include="assets\player_orange.png" />
+	  <EmbeddedResource Include="assets\player_pink.png" />
+	  <EmbeddedResource Include="assets\player_purple.png" />
+	  <EmbeddedResource Include="assets\player_red.png" />
+	  <EmbeddedResource Include="assets\player_white.png" />
+	  <EmbeddedResource Include="assets\player_yellow.png" />
+	  <EmbeddedResource Include="assets\player.obj" />
+	  <EmbeddedResource Include="assets\rainbowgun.png" />
+	  <EmbeddedResource Include="assets\rainbowgun.mtl" />
+	  <EmbeddedResource Include="assets\rainbowgun.obj" />
+	  <EmbeddedResource Include="assets\sniper.png" />
+	  <EmbeddedResource Include="assets\sniper.mtl" />
+	  <EmbeddedResource Include="assets\player.png" />
+	  <EmbeddedResource Include="assets\rocketlauncher.obj" />
+	  <EmbeddedResource Include="assets\rocketlauncher.png" />
+	  <EmbeddedResource Include="assets\rocketlauncher.mtl" />
+	  <EmbeddedResource Include="assets\Shotgun.png" />
+	  <EmbeddedResource Include="assets\shotgun.mtl" />
+	  <EmbeddedResource Include="assets\shotgun.obj" />
+	  <EmbeddedResource Include="assets\sniper.obj" />
+	  <EmbeddedResource Include="assets\gun.png" />
+	  <EmbeddedResource Include="assets\gun.mtl" />
+	  <EmbeddedResource Include="assets\gun.obj" />
 	<EmbeddedResource Include="..\..\assets\Jakobs KitPvP.zip" />
 	<EmbeddedResource Include="..\..\assets\textures.zip" />
     <EmbeddedResource Include="CubeMap\miramar_bk.png" />
