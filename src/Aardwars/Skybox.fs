@@ -96,7 +96,8 @@ module Skybox =
             let env =
                 let trafo t (img : PixImage) = img.Transformed t
                 let load (name : string) =
-                    use s = typeof<Marker>.Assembly.GetManifestResourceStream("Aardwars.CubeMap." + name)
+                    let name = typeof<Marker>.Assembly.GetManifestResourceNames() |> Array.find (fun n -> n.EndsWith name)
+                    use s = typeof<Marker>.Assembly.GetManifestResourceStream(name)
                     PixImage.Load(s)
                     //PixImage.Create(s, PixLoadOptions.Default)
                 
