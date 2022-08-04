@@ -18,6 +18,13 @@ Gameplay video: https://youtu.be/x7_Yy6IQzog
  </tr>
 </table>
 
+## How to play
+
+* Either [download the latest github Release](https://github.com/aardvark-community/aardwars/releases/latest) and run Aardwars.Launcher.exe (Windows only)
+* Or install as dotnet tool:
+  1. `dotnet tool install --global aardwars` 
+  2. `aardwars <server> <port>`
+
 ## Created by
 
 * Georg Haaser (technical programming, [github/krauthaufen](https://github.com/krauthaufen))
