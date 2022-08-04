@@ -1,3 +1,7 @@
+### 0.0.8
+* fixed resource loading (wrong guns)
+* alec trevelyan ;)
+
 ### 0.0.7
 * linux compatibility
 * dotnet tool release

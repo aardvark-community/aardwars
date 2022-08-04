@@ -4,6 +4,9 @@ Microsoft Visual Studio Solution File, Format Version 12.00
 VisualStudioVersion = 17.1.32228.430
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{EB533AFC-1442-4BD7-95C0-8563171BECB2}"
+	ProjectSection(SolutionItems) = preProject
+		src\Aardwars\tool\aardwars.fsproj = src\Aardwars\tool\aardwars.fsproj
+	EndProjectSection
 EndProject
 Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "Aardwars", "src\Aardwars\Aardwars.fsproj", "{E0B5BE54-E9C4-4F61-90FE-A1EA0625B1C8}"
 EndProject
@@ -19,7 +22,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "_", "_", "{71B6DF9E-8E73-44
 		RELEASE_NOTES.md = RELEASE_NOTES.md
 	EndProjectSection
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Aardwars.Launcher", "src\Aardwars.Launcher\Aardwars.Launcher.csproj", "{1089FC6D-17C0-40D5-9579-031FF89B907F}"
+Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Aardwars.Launcher", "src\Aardwars.Launcher\Aardwars.Launcher.csproj", "{1089FC6D-17C0-40D5-9579-031FF89B907F}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

@@ -84,6 +84,7 @@ module Import =
     let loadTexture (texture : string) =
         let texName =
             Path.GetFileName(texture.Replace('/', Path.DirectorySeparatorChar).Replace('\\', Path.DirectorySeparatorChar))
+            |> sprintf ".%s"
             
         let op = 
             names |> Array.tryPick (fun (n, op) ->
@@ -100,9 +101,10 @@ module Import =
             DefaultTextures.checkerboard.GetValue()
 
     let importObj (name : string) =
-        let name = Path.ChangeExtension(name, ".obj")
+        let name = Path.ChangeExtension(name, ".obj") |> sprintf ".%s"
         let op = 
             names |> Array.tryPick (fun (n, op) ->
+                
                 if n.EndsWith name then Some op
                 else None
             )
