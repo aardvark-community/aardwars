@@ -1,3 +1,6 @@
+### 0.0.9
+* another attempt to fix linux problems
+
 ### 0.0.8
 * fixed resource loading (wrong guns)
 * alec trevelyan ;)
