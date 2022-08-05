@@ -22,6 +22,21 @@
             "problemMatcher": "$msCompile"
         },
         {
+            "label": "adaptify",
+            "command": "dotnet",
+            "type": "shell",
+            "args": [
+                "adaptify",
+                "--local",
+                "${workspaceFolder}/src/Aardwars/aardwars.fsproj"
+            ],
+            "group": "build",
+            "presentation": {
+                "reveal": "always"
+            },
+            "problemMatcher": "$msCompile"
+        },
+        {
             "label": "clean",
             "command": "dotnet",
             "args": [

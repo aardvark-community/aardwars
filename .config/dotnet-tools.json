@@ -11,7 +11,13 @@
       "aardpack": {
           "version": "1.0.13",
           "commands": [
-                "aardpack"
+            "aardpack"
+          ]
+      },
+      "adaptify": {
+          "version": "1.1.6",
+          "commands": [
+            "adaptify"
           ]
       }
     }

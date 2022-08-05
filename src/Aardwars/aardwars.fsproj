@@ -55,6 +55,7 @@
     <Compile Include="Gun.fs" />
     <Compile Include="PowerUps.fs" />
     <Compile Include="Model.fs" />
+    <Compile Include="Model.g.fs" />
     <Compile Include="Text.fs" />
     <Compile Include="Camera.fs" />
     <Compile Include="Skybox.fs" />

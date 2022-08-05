@@ -1,8 +1,9 @@
 //b40fe333-f952-ee92-2d9b-5f808b416b08
-//4fa53d0d-dd6a-545e-52cb-d2b73d9e0375
+//cba0f649-7348-148d-56df-b0ec455de49c
 #nowarn "49" // upper case patterns
 #nowarn "66" // upcast is unncecessary
 #nowarn "1337" // internal types
+#nowarn "1182" // value is unused
 namespace rec Elm
 
 open System
