@@ -1,3 +1,6 @@
+### 0.0.12
+* updated rendering
+
 ### 0.0.11
 * more linux fixes 2/N
 
