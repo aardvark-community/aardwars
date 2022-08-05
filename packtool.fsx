@@ -9,7 +9,7 @@ let notes = ReleaseNotes.load "RELEASE_NOTES.md"
 let version = notes.NugetVersion
 
 
-"src/Aardwars/tool/aardwars.fsproj" |> DotNet.pack (fun o ->
+"src/Aardwars/aardwars.fsproj" |> DotNet.pack (fun o ->
     { o with
         Configuration = DotNet.BuildConfiguration.Release
         OutputPath = Some "bin/pack"
