@@ -1,3 +1,6 @@
+### 0.0.10
+* more linux fixes
+
 ### 0.0.9
 * another attempt to fix linux problems
 
