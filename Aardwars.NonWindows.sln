@@ -17,7 +17,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "_", "_", "{71B6DF9E-8E73-44
 		RELEASE_NOTES.md = RELEASE_NOTES.md
 	EndProjectSection
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "aardwars", "src\Aardwars\tool\aardwars.fsproj", "{49587346-CDAE-4245-9979-D190973AE50F}"
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "aardwars", "src\Aardwars\aardwars.fsproj", "{49587346-CDAE-4245-9979-D190973AE50F}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution

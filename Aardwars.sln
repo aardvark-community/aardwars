@@ -8,7 +8,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{EB533AFC-144
 		src\Aardwars\tool\aardwars.fsproj = src\Aardwars\tool\aardwars.fsproj
 	EndProjectSection
 EndProject
-Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "Aardwars", "src\Aardwars\Aardwars.fsproj", "{E0B5BE54-E9C4-4F61-90FE-A1EA0625B1C8}"
+Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "aardwars", "src\Aardwars\aardwars.fsproj", "{E0B5BE54-E9C4-4F61-90FE-A1EA0625B1C8}"
 EndProject
 Project("{6EC3EE1D-3C4E-46DD-8F32-0CC8E7565705}") = "Minecraft.Parser", "src\Minecraft.Parser\Minecraft.Parser.fsproj", "{810D17E7-FEA5-46B5-B48F-289CF38B166F}"
 EndProject

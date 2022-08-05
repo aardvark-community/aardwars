@@ -45,6 +45,7 @@ module Main =
             else
                 "localhost", Elm.App.port
         Aardvark.Rendering.GL.RuntimeConfig.UseNewRenderTask <- true
+        Aardvark.Rendering.GL.RuntimeConfig.SupressSparseBuffers <- true
         MainGame.startGame server port
 
         0
