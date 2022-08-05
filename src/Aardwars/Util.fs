@@ -653,6 +653,8 @@ module MapAssets =
         let inline ensure d = if not (Directory.Exists(d)) then Directory.CreateDirectory(d) |> ignore
         ensure baseDir
         let extract resourceName folderName =
+            let assName = ass.GetName().Name
+            let resourceName = $"{assName}.{resourceName}"
             let path = Path.combine [baseDir; folderName]
             if not (Directory.Exists(path)) then
                 Directory.CreateDirectory(path) |> ignore
@@ -660,8 +662,8 @@ module MapAssets =
                 let a = new ZipArchive(s)
                 a.ExtractToDirectory(path)
             path
-        let mapPath = extract "Aardwars.Jakobs KitPvP.zip" "Jakobs KitPvP"
-        let texPath = extract "Aardwars.textures.zip" "textures"
+        let mapPath = extract "Jakobs KitPvP.zip" "Jakobs KitPvP"
+        let texPath = extract "textures.zip" "textures"
         texPath, mapPath
 
 module Shader =

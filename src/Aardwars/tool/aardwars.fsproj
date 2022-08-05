@@ -3,7 +3,7 @@
   <PropertyGroup>
     <OutputType>Exe</OutputType>
     <TargetFramework>net6.0</TargetFramework>
-    <OutputPath>..\..\bin\$(Configuration)\</OutputPath>
+    <OutputPath>..\..\..\bin\$(Configuration)\</OutputPath>
     <PackAsTool>true</PackAsTool>
   </PropertyGroup>
   <ItemGroup>
@@ -41,7 +41,9 @@
     <EmbeddedResource Include="..\CubeMap\miramar_lf.png" />
     <EmbeddedResource Include="..\CubeMap\miramar_rt.png" />
     <EmbeddedResource Include="..\CubeMap\miramar_up.png" />
-    <Compile Include="..\Screenshot.fs" />
+    <Compile Include="..\Screenshot.fs">
+        <Link>Screenshot.fs</Link>
+    </Compile>
     <Compile Include="..\Util.fs" />
     <Compile Include="..\Importer.fs" />
     <Compile Include="..\CollisionDetection.fs" />

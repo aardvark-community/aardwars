@@ -128,6 +128,7 @@ module MinecraftWorld =
 
                     rt.Upload(atlas, img, level = 0, slice = i)
                 with _ ->
+                    rt.Upload(atlas, PixImage<byte>(Col.Format.RGBA, V2i(16,16)), level = 0, slice = i)
                     Log.error "nasdhbaiksdnjasndkjasndkjasd: %A" textureList.[i]
             rt.GenerateMipMaps atlas
             atlas
