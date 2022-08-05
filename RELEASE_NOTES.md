@@ -1,3 +1,6 @@
+### 0.0.11
+* more linux fixes 2/N
+
 ### 0.0.10
 * more linux fixes
 
